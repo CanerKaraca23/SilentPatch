@@ -210,7 +210,7 @@ RwFrame* RwFrameUpdateObjects(RwFrame* frame)
 
 RwMatrix* RwMatrixUpdate(RwMatrix* matrix)
 {
-	matrix->flags &= ~(rwMATRIXTYPEMASK|rwMATRIXINTERNALIDENTITY);
+	matrix->flags &= ~(static_cast<int>(rwMATRIXTYPEMASK)|static_cast<int>(rwMATRIXINTERNALIDENTITY));
 	return matrix;
 }
 
@@ -6105,7 +6105,7 @@ void Patch_SA_10(HINSTANCE hInstance)
 
 	// DOUBLE_RWHEELS
 	Patch<WORD>(0x4C9290, 0xE281);
-	Patch<int>(0x4C9292, ~(rwMATRIXTYPEMASK|rwMATRIXINTERNALIDENTITY));
+	Patch<int>(0x4C9292, ~(static_cast<int>(rwMATRIXTYPEMASK)|static_cast<int>(rwMATRIXINTERNALIDENTITY)));
 
 	// A fix for DOUBLE_RWHEELS trailers
 	InjectHook(0x4C9223, TrailerDoubleRWheelsFix, HookType::Jump);
@@ -7419,7 +7419,7 @@ void Patch_SA_11()
 
 	// DOUBLE_RWHEELS
 	Patch<WORD>(0x4C9490, 0xE281);
-	Patch<int>(0x4C9492, ~(rwMATRIXTYPEMASK|rwMATRIXINTERNALIDENTITY));
+	Patch<int>(0x4C9492, ~(static_cast<int>(rwMATRIXTYPEMASK)|static_cast<int>(rwMATRIXINTERNALIDENTITY)));
 
 	// A fix for DOUBLE_RWHEELS trailers
 	InjectHook(0x4C9423, TrailerDoubleRWheelsFix, HookType::Jump);
@@ -7775,7 +7775,7 @@ void Patch_SA_Steam()
 
 	// DOUBLE_RWHEELS
 	Patch<WORD>(0x4D3B9D, 0x6781);
-	Patch<int>(0x4D3BA0, ~(rwMATRIXTYPEMASK|rwMATRIXINTERNALIDENTITY));
+	Patch<int>(0x4D3BA0, ~(static_cast<int>(rwMATRIXTYPEMASK)|static_cast<int>(rwMATRIXINTERNALIDENTITY)));
 
 	// A fix for DOUBLE_RWHEELS trailers
 	InjectHook(0x4D3B47, TrailerDoubleRWheelsFix_Steam, HookType::Jump);
