@@ -90,8 +90,15 @@ DWORD CAEDataStreamNew::FillBuffer(void* pBuf, DWORD nLen)
 
 CAEStreamingDecoder::~CAEStreamingDecoder()
 {
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 5205) // Classes are final with non-virtual IStream base - safe to delete via reinterpret_cast
+#endif
 	if ( CAEDataStream::IsNew() )
 		delete reinterpret_cast<CAEDataStreamNew*>(pStream);
 	else
 		delete reinterpret_cast<CAEDataStreamOld*>(pStream);
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 }
