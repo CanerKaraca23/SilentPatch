@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout Repository
@@ -52,18 +52,6 @@ jobs:
           echo "RWG33SDK=$root\III" >> $env:GITHUB_ENV
           echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
           echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
-
-      - name: Install v141_xp toolset
-        shell: pwsh
-        run: |
-          $bootstrapper = "$env:RUNNER_TEMP\vs_buildtools.exe"
-          Invoke-WebRequest -Uri 'https://aka.ms/vs/16/release/vs_buildtools.exe' -OutFile $bootstrapper
-          & $bootstrapper --quiet --norestart --nocache `
-            --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 `
-            --add Microsoft.VisualStudio.Component.WinXP
-          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
-            throw "Failed to install v141_xp toolset (exit code: $LASTEXITCODE)"
-          }
 
       - name: Build
         run: |
