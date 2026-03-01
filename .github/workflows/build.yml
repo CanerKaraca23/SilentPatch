@@ -53,21 +53,10 @@ jobs:
           echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
           echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
 
-      - name: Install v141_xp toolset
-        shell: pwsh
-        run: |
-          $vsInstaller = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
-          $vsPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          & $vsInstaller modify --installPath $vsPath `
-            --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 `
-            --add Microsoft.VisualStudio.Component.WinXP `
-            --quiet --norestart --force
-          if ($LASTEXITCODE -ne 0) { throw "Failed to install v141_xp toolset (exit code: $LASTEXITCODE)" }
-
       - name: Build
         run: |
           vcpkg integrate install
-          msbuild SilentPatch.sln /p:Configuration=Release /p:Platform=Win32 /m
+          msbuild SilentPatch.sln /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /m
 
       - name: Copy INI files to Release
         shell: pwsh
