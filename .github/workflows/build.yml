@@ -64,15 +64,6 @@ jobs:
             '--add', 'Microsoft.VisualStudio.Component.WinXP',
             '--quiet', '--norestart', '--nocache')
           $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) {
-            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on first attempt."
-            exit 1
-          }
-          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) {
-            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on second attempt."
-            exit 1
-          }
 
       - name: Build
         run: |
