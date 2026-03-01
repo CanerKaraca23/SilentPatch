@@ -58,8 +58,11 @@ jobs:
         run: |
           $vsInstaller = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vs_installer.exe"
           $vsPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
-          & $vsInstaller modify --installPath $vsPath --add Microsoft.VisualStudio.Component.WinXP --quiet --norestart --force
-          if ($LASTEXITCODE -ne 0) { throw "Failed to install v141_xp toolset" }
+          & $vsInstaller modify --installPath $vsPath `
+            --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 `
+            --add Microsoft.VisualStudio.Component.WinXP `
+            --quiet --norestart --force
+          if ($LASTEXITCODE -ne 0) { throw "Failed to install v141_xp toolset (exit code: $LASTEXITCODE)" }
 
       - name: Build
         run: |
