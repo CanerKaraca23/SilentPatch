@@ -26,7 +26,8 @@ jobs:
       - name: Setup RenderWare SDK
         shell: pwsh
         run: |
-          git clone --depth 1 https://github.com/DK22Pac/plugin-sdk.git $env:RUNNER_TEMP\plugin-sdk
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/DK22Pac/plugin-sdk.git $env:RUNNER_TEMP\plugin-sdk
+          git -C "$env:RUNNER_TEMP\plugin-sdk" sparse-checkout set plugin_III/game_III/rw plugin_vc/game_vc/rw plugin_sa/game_sa/rw
 
           $sdk = "$env:RUNNER_TEMP\plugin-sdk"
           $games = @(
@@ -53,7 +54,19 @@ jobs:
           echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
           echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
 
+      - name: Cache v141_xp toolset
+        id: cache-v141xp
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.16.27023
+            C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\Platforms\Win32\PlatformToolsets\v141_xp
+            C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VC\v170\Platforms\x64\PlatformToolsets\v141_xp
+            C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A
+          key: v141xp-${{ runner.os }}-14.16.27023
+
       - name: Install v141_xp toolset
+        if: steps.cache-v141xp.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
           Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
