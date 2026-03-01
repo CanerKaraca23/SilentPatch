@@ -54,29 +54,11 @@ jobs:
           echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
           echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
 
-      - name: Resolve VS install path
-        shell: pwsh
-        run: |
-          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.Component.MSBuild -property installationPath
-          echo "VS_INSTALL_PATH=$vsPath" >> $env:GITHUB_ENV
-
-      - name: Cache v141_xp toolset
-        id: cache-v141xp
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ env.VS_INSTALL_PATH }}\VC\Tools\MSVC\14.16.27023
-            ${{ env.VS_INSTALL_PATH }}\MSBuild\Microsoft\VC\v170\Platforms\Win32\PlatformToolsets\v141_xp
-            ${{ env.VS_INSTALL_PATH }}\MSBuild\Microsoft\VC\v170\Platforms\x64\PlatformToolsets\v141_xp
-            C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A
-          key: v141xp-${{ runner.os }}-${{ env.ImageVersion }}-14.16.27023
-
       - name: Install v141_xp toolset
-        if: steps.cache-v141xp.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          Set-Location "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\"
-          $InstallPath = $env:VS_INSTALL_PATH
+          Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+          $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
           $Arguments = ('/c', 'vs_installer.exe', 'modify', '--installPath', "`"$InstallPath`"",
             '--add', 'Microsoft.VisualStudio.Component.VC.v141.x86.x64',
             '--add', 'Microsoft.VisualStudio.Component.WinXP',
@@ -86,21 +68,9 @@ jobs:
             Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on first attempt."
             exit 1
           }
-          # NOTE: On GitHub-hosted Windows runners the v141_xp toolset does not fully register
-          # after a single installer run. Running the same command a second time is required
-          # to complete registration, so do not simplify this back to a single invocation.
           $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) {
             Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on first attempt."
-            exit 1
-          }
-          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
-          if ($process.ExitCode -ne 0) {
-            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on second attempt."
-            exit 1
-          }
-          if ($process.ExitCode -ne 0) {
-            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on second attempt."
             exit 1
           }
 
