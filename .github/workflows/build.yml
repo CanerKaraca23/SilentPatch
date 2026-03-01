@@ -89,8 +89,16 @@ jobs:
           # NOTE: On GitHub-hosted Windows runners the v141_xp toolset does not fully register
           # after a single installer run. Running the same command a second time is required
           # to complete registration, so do not simplify this back to a single invocation.
-          Write-Host "Re-running v141_xp toolset installer to ensure full registration on GitHub runner..."
           $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) {
+            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on first attempt."
+            exit 1
+          }
+          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) {
+            Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on second attempt."
+            exit 1
+          }
           if ($process.ExitCode -ne 0) {
             Write-Error "vs_installer.exe modify failed with exit code $($process.ExitCode) on second attempt."
             exit 1
