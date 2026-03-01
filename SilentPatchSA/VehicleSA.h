@@ -173,6 +173,12 @@ enum eDoors
 
 #define FLAG_HYDRAULICS_INSTALLED 0x20000
 
+class CVehicle;
+namespace LightbeamFix
+{
+	void SetCurrentVehicle( CVehicle* vehicle );
+}
+
 class NOVMT CVehicle	: public CPhysical
 {
 protected:
