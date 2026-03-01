@@ -1692,9 +1692,6 @@ namespace SubtitleRadarCutoutFix
 	static const float* orgRadarWidth;
 	static const float* orgRadarBorderWidth;
 
-	static bool* bWideScreenOn;
-	static float fExtraSubtitleYOffset;
-
 	template<std::size_t... I>
 	static void RecalculateValues(std::index_sequence<I...>)
 	{
@@ -1712,6 +1709,9 @@ namespace SubtitleRadarCutoutFix
 			((RadarXPos_Recalculated<I> = *orgRadarXPos<I>), ...);		
 		}
 	}
+
+	static bool* bWideScreenOn;
+	static float fExtraSubtitleYOffset;
 
 	static void (*orgSetCentreSize)(float size);
 	static void SetCentreSize_CenterForCutscene(float size)
