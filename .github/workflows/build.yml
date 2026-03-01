@@ -53,6 +53,18 @@ jobs:
           echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
           echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
 
+      - name: Install v141_xp toolset
+        shell: pwsh
+        run: |
+          Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+          $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          $Arguments = ('/c', 'vs_installer.exe', 'modify', '--installPath', "`"$InstallPath`"",
+            '--add', 'Microsoft.VisualStudio.Component.VC.v141.x86.x64',
+            '--add', 'Microsoft.VisualStudio.Component.WinXP',
+            '--quiet', '--norestart', '--nocache')
+          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+
       - name: Build
         run: |
           vcpkg integrate install
