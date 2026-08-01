@@ -1,0 +1,146 @@
+name: Build SilentPatch
+
+on:
+  push:
+    branches: dev
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'SilentPatch/**'
+              - 'premake5.lua'
+              - '.github/workflows/**'
+            iii:
+              - 'SilentPatchIII/**'
+            vc:
+              - 'SilentPatchVC/**'
+            sa:
+              - 'SilentPatchSA/**'
+            ddraw:
+              - 'DDraw/**'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Setup vcpkg
+        if: steps.filter.outputs.sa == 'true' || steps.filter.outputs.shared == 'true'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3'
+
+      - name: Setup RenderWare SDK
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/DK22Pac/plugin-sdk.git $env:RUNNER_TEMP\plugin-sdk
+
+          $sdk = "$env:RUNNER_TEMP\plugin-sdk"
+          $games = @(
+            @{ Dir='III'; Src='plugin_III/game_III'; Api='d3d8' },
+            @{ Dir='VC';  Src='plugin_vc/game_vc';   Api='d3d8' },
+            @{ Dir='SA';  Src='plugin_sa/game_sa';   Api='d3d9' }
+          )
+          foreach ($g in $games) {
+            $dst = "rwsdk\$($g.Dir)\include\$($g.Api)"
+            New-Item -ItemType Directory -Force -Path "$dst\rw" | Out-Null
+            Copy-Item "$sdk\$($g.Src)\rw\*" "$dst\"
+            Copy-Item "$sdk\$($g.Src)\rw\*.rpe" "$dst\rw\"
+          }
+
+          # Fix plugin-sdk headers for MSVC compatibility
+          foreach ($g in $games) {
+            $dst = "rwsdk\$($g.Dir)\include\$($g.Api)"
+            (Get-Content "$dst\rwplcore.h") -replace 'extern void         \*&RwEngineInstance;', 'extern void         *RwEngineInstance;' | Set-Content "$dst\rwplcore.h"
+          }
+          (Get-Content rwsdk\SA\include\d3d9\rtanim.h) -replace '//RwInt32                             animKeyFrameSize;', 'RwInt32                             animKeyFrameSize;' | Set-Content rwsdk\SA\include\d3d9\rtanim.h
+
+          $root = (Resolve-Path rwsdk).Path
+          echo "RWG33SDK=$root\III" >> $env:GITHUB_ENV
+          echo "RWG34SDK=$root\VC" >> $env:GITHUB_ENV
+          echo "RWG36SDK=$root\SA" >> $env:GITHUB_ENV
+
+      - name: Build Pre-requisites
+        shell: pwsh
+        run: |
+          .\premake5.exe vs2026
+          if ("${{ steps.filter.outputs.shared }}" -eq "true" -or "${{ steps.filter.outputs.sa }}" -eq "true") {
+              Write-Host "Installing SA dependencies..."
+              vcpkg install libflac:x86-windows-static
+              vcpkg integrate install
+          } else {
+              Write-Host "Skipping SA dependencies for non-SA build."
+          }
+
+      - name: Build Projects
+        shell: pwsh
+        run: |
+          $targets = @()
+          if ("${{ steps.filter.outputs.shared }}" -eq "true") {
+              $targets += "SilentPatchIII", "SilentPatchVC", "SilentPatchSA", "DDraw"
+          } else {
+              if ("${{ steps.filter.outputs.iii }}" -eq "true") { $targets += "SilentPatchIII" }
+              if ("${{ steps.filter.outputs.vc }}" -eq "true") { $targets += "SilentPatchVC" }
+              if ("${{ steps.filter.outputs.sa }}" -eq "true") { $targets += "SilentPatchSA" }
+              if ("${{ steps.filter.outputs.ddraw }}" -eq "true") { $targets += "DDraw" }
+          }
+          if ($targets.Length -eq 0) {
+              Write-Host "Nothing to build"
+              exit 0
+          }
+          $targetStr = $targets -join ";"
+          Write-Host "Building targets: $targetStr"
+          msbuild SilentPatch.slnx /t:$targetStr /p:Configuration=Release /p:Platform=Win32 /m /p:VcpkgTriplet=x86-windows-static /p:VcpkgUseStatic=true
+
+      - name: Copy INI files to Release
+        shell: pwsh
+        run: |
+            if (Test-Path Config/SilentPatchIII.ini) { Copy-Item Config/SilentPatchIII.ini Release/SilentPatchIII.ini -ErrorAction SilentlyContinue }
+            if (Test-Path Config/SilentPatchVC.ini) { Copy-Item Config/SilentPatchVC.ini Release/SilentPatchVC.ini -ErrorAction SilentlyContinue }
+            if (Test-Path Config/SilentPatchSA.ini) { Copy-Item Config/SilentPatchSA.ini Release/SilentPatchSA.ini -ErrorAction SilentlyContinue }
+
+      - name: Upload SilentPatchIII
+        if: steps.filter.outputs.iii == 'true' || steps.filter.outputs.shared == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SilentPatchIII
+          path: |
+            Release/SilentPatchIII.asi
+            Release/SilentPatchIII.ini
+
+      - name: Upload SilentPatchVC
+        if: steps.filter.outputs.vc == 'true' || steps.filter.outputs.shared == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SilentPatchVC
+          path: |
+            Release/SilentPatchVC.asi
+            Release/SilentPatchVC.ini
+
+      - name: Upload SilentPatchSA
+        if: steps.filter.outputs.sa == 'true' || steps.filter.outputs.shared == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: SilentPatchSA
+          path: |
+            Release/SilentPatchSA.asi
+            Release/SilentPatchSA.ini
+
+      - name: Upload DDraw
+        if: steps.filter.outputs.ddraw == 'true' || steps.filter.outputs.shared == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: DDraw
+          path: Release/ddraw.dll

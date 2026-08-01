@@ -522,7 +522,7 @@ namespace PrintStringShadows
 		}
 	};
 
-	template<uintptr_t pFltY>
+	template<uintptr_t pFltY, typename Scaler>
 	struct Y
 	{
 		static inline void (*orgPrintString)(float,float,const wchar_t*);
@@ -552,10 +552,10 @@ namespace RadardiscFixes
 	static float* orgRadarXPosPtr;
 
 	template<std::size_t Index>
-	static const float* orgRadarXPos_RadardiscShrink;
+	static inline const float* orgRadarXPos_RadardiscShrink;
 
 	template<std::size_t Index>
-	static float RadarXPos_Recalculated_RadardiscShrink;
+	static inline float RadarXPos_Recalculated_RadardiscShrink;
 
 	template<std::size_t... I>
 	static void RecalculateXPositions_RadardiscShrink(std::index_sequence<I...>)
@@ -565,10 +565,10 @@ namespace RadardiscFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgRadarYPos_RadardiscShrink;
+	static inline const float* orgRadarYPos_RadardiscShrink;
 
 	template<std::size_t Index>
-	static float RadarYPos_Recalculated_RadardiscShrink;
+	static inline float RadarYPos_Recalculated_RadardiscShrink;
 
 	template<std::size_t... I>
 	static void RecalculateYPositions_RadardiscShrink(std::index_sequence<I...>)
@@ -599,7 +599,7 @@ namespace RadardiscFixes
 	}
 
 	template<std::size_t Index>
-	static void (__fastcall* orgDrawSprite)(void* obj, void*, const CRect& rect, const CRGBA& col1, const CRGBA& col2, const CRGBA& col3, const CRGBA& col4);
+	static inline void (__fastcall* orgDrawSprite)(void* obj, void*, const CRect& rect, const CRGBA& col1, const CRGBA& col2, const CRGBA& col3, const CRGBA& col4);
 
 	template<std::size_t Index>
 	static void __fastcall DrawSprite_Scale(void* obj, void*, const CRect& rect, const CRGBA& col1, const CRGBA& col2, const CRGBA& col3, const CRGBA& col4)
@@ -619,16 +619,16 @@ namespace OnscreenCounterBarFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgXPos;
+	static inline const float* orgXPos;
 
 	template<std::size_t Index>
-	static float XPos_Recalculated;
+	static inline float XPos_Recalculated;
 
 	template<std::size_t Index>
-	static const float* orgYPos;
+	static inline const float* orgYPos;
 
 	template<std::size_t Index>
-	static float YPos_Recalculated;
+	static inline float YPos_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateXPositions(std::index_sequence<I...>)
@@ -668,16 +668,16 @@ namespace RadarTraceOutlineFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgXPos;
+	static inline const float* orgXPos;
 
 	template<std::size_t Index>
-	static float XPos_Recalculated;
+	static inline float XPos_Recalculated;
 
 	template<std::size_t Index>
-	static const float* orgYPos;
+	static inline const float* orgYPos;
 
 	template<std::size_t Index>
-	static float YPos_Recalculated;
+	static inline float YPos_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateXPositions(std::index_sequence<I...>)
@@ -703,7 +703,7 @@ namespace RadarTraceOutlineFixes
 		}
 
 		template<std::size_t Index>
-		static void (*orgShowRadarTraceWithHeight)(float, float, unsigned int, unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
+		static inline void (*orgShowRadarTraceWithHeight)(float, float, unsigned int, unsigned char, unsigned char, unsigned char, unsigned char, unsigned char);
 
 		template<std::size_t Index>
 		static void ShowRadarTraceWithHeight_RecalculatePositions(float a1, float a2, unsigned int a3, unsigned char a4, unsigned char a5, unsigned char a6, unsigned char a7, unsigned char a8)
@@ -729,16 +729,16 @@ namespace LoadingBarOutlineFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgXPos;
+	static inline const float* orgXPos;
 
 	template<std::size_t Index>
-	static float XPos_Recalculated;
+	static inline float XPos_Recalculated;
 
 	template<std::size_t Index>
-	static const float* orgYPos;
+	static inline const float* orgYPos;
 
 	template<std::size_t Index>
-	static float YPos_Recalculated;
+	static inline float YPos_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateXPositions(std::index_sequence<I...>)
@@ -781,7 +781,7 @@ namespace CreditsScalingFixes
 	static const unsigned int FIXED_RES_HEIGHT_SCALE = 448;
 
 	template<std::size_t Index>
-	static void (*orgPrintString)(float,float,const wchar_t*);
+	static inline void (*orgPrintString)(float,float,const wchar_t*);
 
 	template<std::size_t Index>
 	static void PrintString_ScaleY(float fX, float fY, const wchar_t* pText)
@@ -818,7 +818,7 @@ namespace SlidingTextsScalingFixes
 		static inline bool bSlidingEnabled = false;
 
 		template<std::size_t Index>
-		static void (*orgPrintString)(float,float,const wchar_t*);
+		static inline void (*orgPrintString)(float,float,const wchar_t*);
 
 		template<std::size_t Index>
 		static void PrintString_Slide(float fX, float fY, const wchar_t* pText)
@@ -828,7 +828,7 @@ namespace SlidingTextsScalingFixes
 		}
 
 		template<std::size_t Index>
-		static void (*orgSetRightJustifyWrap)(float wrap);
+		static inline void (*orgSetRightJustifyWrap)(float wrap);
 
 		template<std::size_t Index>
 		static void SetRightJustifyWrap_Slide(float wrap)
@@ -845,7 +845,7 @@ namespace SlidingTextsScalingFixes
 		static inline bool bSlidingEnabled = false;
 
 		template<std::size_t Index>
-		static void (*orgPrintString)(float,float,const wchar_t*);
+		static inline void (*orgPrintString)(float,float,const wchar_t*);
 
 		template<std::size_t Index>
 		static void PrintString_Slide(float fX, float fY, const wchar_t* pText)
@@ -872,7 +872,7 @@ namespace DarkelTextPlacement
 	}
 
 	template<std::size_t Index>
-	static void (*orgPrintString)(float,float,const wchar_t*);
+	static inline void (*orgPrintString)(float,float,const wchar_t*);
 
 	template<std::size_t Index>
 	static void PrintString_ScaleY(float fX, float fY, const wchar_t* pText)
@@ -969,7 +969,7 @@ namespace ShadowScalingFixes
 	}
 
 	template<std::size_t Index>
-	static void (*orgPrintString)(float x, float y, uint32_t, uint16_t*, uint16_t*, float);
+	static inline void (*orgPrintString)(float x, float y, uint32_t, uint16_t*, uint16_t*, float);
 
 	template<std::size_t Index>
 	static void PrintString_AdjustShadow(float x, float y, uint32_t a3, uint16_t* a4, uint16_t* a5, float a6)
@@ -1006,10 +1006,10 @@ namespace TextRectPaddingScalingFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgPaddingXSize;
+	static inline const float* orgPaddingXSize;
 
 	template<std::size_t Index>
-	static float PaddingXSize_Recalculated;
+	static inline float PaddingXSize_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateXSize(std::index_sequence<I...>)
@@ -1019,10 +1019,10 @@ namespace TextRectPaddingScalingFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgPaddingYSize;
+	static inline const float* orgPaddingYSize;
 
 	template<std::size_t Index>
-	static float PaddingYSize_Recalculated;
+	static inline float PaddingYSize_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateYSize(std::index_sequence<I...>)
@@ -1044,10 +1044,10 @@ namespace TextRectPaddingScalingFixes
 	HOOK_EACH_INIT(PaddingYSize, orgPaddingYSize, PaddingYSize_Recalculated);
 
 	template<std::size_t Index>
-	static const float* orgWrapX;
+	static inline const float* orgWrapX;
 
 	template<std::size_t Index>
-	static float WrapX_Recalculated;
+	static inline float WrapX_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateWrapX(std::index_sequence<I...>)
@@ -1077,10 +1077,10 @@ namespace BigMessage3ScalingFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgOffsetY;
+	static inline const float* orgOffsetY;
 
 	template<std::size_t Index>
-	static float OffsetY_Recalculated;
+	static inline float OffsetY_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateYOffset(std::index_sequence<I...>)
@@ -1131,7 +1131,7 @@ namespace FixedLineWraps
 	struct WrapInternal
 	{
 		template<std::size_t Index>
-		static void (*orgWrapFunction)(float);
+		static inline void (*orgWrapFunction)(float);
 
 		template<std::size_t Index>
 		static void WrapFunction_LeftAlign(float fLength)
@@ -1195,16 +1195,16 @@ namespace YouAreHereScalingFixes
 	}
 
 	template<std::size_t Index>
-	static const float* orgXPos;
+	static inline const float* orgXPos;
 
 	template<std::size_t Index>
-	static float XPos_Recalculated;
+	static inline float XPos_Recalculated;
 
 	template<std::size_t Index>
-	static const float* orgYPos;
+	static inline const float* orgYPos;
 
 	template<std::size_t Index>
-	static float YPos_Recalculated;
+	static inline float YPos_Recalculated;
 
 	template<std::size_t... I>
 	static void RecalculateXPositions(std::index_sequence<I...>)
@@ -1677,7 +1677,7 @@ namespace VariableResets
 	}
 
 	template<std::size_t Index>
-	static void (*orgReInitGameObjectVariables)();
+	static inline void (*orgReInitGameObjectVariables)();
 
 	template<std::size_t Index>
 	void ReInitGameObjectVariables()
@@ -1914,7 +1914,7 @@ namespace ConstructionSiteLODFix
 	}
 
 	template<std::size_t Index>
-	static void (__fastcall *orgReplaceWithNewModel)(CEntity* building, void*, int newModelID);
+	static inline void (__fastcall *orgReplaceWithNewModel)(CEntity* building, void*, int newModelID);
 
 	template<std::size_t Index>
 	static void __fastcall ReplaceWithNewModel_ConstructionSiteFix(CEntity* building, void*, int newModelID)
@@ -2429,7 +2429,7 @@ namespace TommyFistShakeWithWeapons
 	}
 
 	template<std::size_t Index>
-	static WeaponInfo* (*orgGetWeaponInfo)(uint32_t weaponID);
+	static inline WeaponInfo* (*orgGetWeaponInfo)(uint32_t weaponID);
 
 	template<std::size_t Index>
 	static WeaponInfo* gGetWeaponInfo_ExcludeChainsaw(uint32_t weaponID)
@@ -2444,6 +2444,29 @@ namespace TommyFistShakeWithWeapons
 	HOOK_EACH_INIT(ExcludeChainsaw, orgGetWeaponInfo, gGetWeaponInfo_ExcludeChainsaw);
 }
 
+
+// ============= Fix player suit resetting during mission triggers =============
+// ============= Contributed by CanerKaraca =============
+namespace PreserveSuitOnDeath
+{
+	static void* orgRequestSpecialModel;
+
+	void __cdecl RequestSpecialModel_PreserveSuit(int mi, const char* name, int flags)
+	{
+		// Only preserve suit for MI_PLAYER (0) if the script attempts to forcefully reload "player".
+		if (mi == 0 && name != nullptr && _stricmp(name, "player") == 0)
+		{
+			// Get the current outfit name of the player
+			const char* currentName = ms_modelInfoPtrs.Get()[0]->GetModelName();
+			if (currentName != nullptr && currentName[0] != '\0')
+			{
+				name = currentName;
+			}
+		}
+
+		((void(__cdecl*)(int, const char*, int))orgRequestSpecialModel)(mi, name, flags);
+	}
+}
 
 // ============= Fix shell casings being ejected from weapons that don't eject them (Python, Sniper Rifle, Laser Scope) =============
 // ============= Contributed by CanerKaraca =============
@@ -3298,6 +3321,27 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	}
 	TXN_CATCH();
 
+	// Mipmapping
+	// Contributed by CanerKaraca
+	if (const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"EnableMipMaps", 0, wcModulePath); INIoption != 0) try
+	{
+		// Enable Mipmapping globally
+		// Matches: push 1; call RwTextureSetAutoMipmapping; add esp, 4; push 0
+		auto setMipmapping = pattern("6A 01 E8 ? ? ? ? 83 C4 ? 6A 00").get_first<uint8_t>();
+		if (setMipmapping)
+		{
+			// change push 0 to push 1
+			Patch<uint8_t>(setMipmapping + 10, 1);
+		}
+
+		// Remove code which disables mipmap flags in CStreaming::ReadTextureFormat
+		// Finds: and dword ptr [esp+XX], 0FFFF6FFFh followed by test
+		pattern("81 ? ? ? FF 6F FF FF 84").for_each_result([](hook::txn::pattern_match match) {
+			Nop(match.get<void>(0), 8);
+		});
+	}
+	TXN_CATCH();
+
 	// Speech delay fix
 	if (const int speech_delay = GetPrivateProfileIntW(L"SilentPatch", L"SpeechDelayTimer", -1, wcModulePath); speech_delay != -1) try
 	{
@@ -3562,6 +3606,22 @@ void Patch_VC_JP()
 	Patch<DWORD>(0x47B1FE + 0x1CC + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x47C266 + 0x22E + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x481E8A + 0x4FE + 0x2, 0x94ABD8);
+}
+
+// Tommy's idle animations playback fix
+// Contributed by CanerKaraca
+void (__thiscall *orgPlayerControl1stPersonRunAround)(void*, void*);
+void (__thiscall *orgPlayIdleAnimations)(void*, void*);
+
+void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* edx, void* padUsed)
+{
+	orgPlayerControl1stPersonRunAround(_this, padUsed);
+
+	// PEDSTATE_FIGHT is 17. m_nPedState is at offset 0x244.
+	if (*(uint32_t*)((uint8_t*)_this + 0x244) != 17)
+	{
+		orgPlayIdleAnimations(_this, padUsed);
+	}
 }
 
 void Patch_VC_Common()
@@ -4690,6 +4750,35 @@ void Patch_VC_Common()
 	}
 	TXN_CATCH();
 
+	// Fix Tommy's clothes resetting during mission triggers
+	// Contributed by CanerKaraca
+	try
+	{
+		using namespace PreserveSuitOnDeath;
+
+		// CPed::Undress contains a unique call to RpAnimBlendClumpGetAssociation with ANIM_STD_PHONE_OUT (0xA5 = 165 in VC)
+		// 68 A5 00 00 00 50 E8 ? ? ? ? 85 C0 59 59 74 09 53 50 E8 ? ? ? ? 59 59 89 D9 8B 31 FF
+		auto pedUndress = pattern("68 A5 00 00 00 50 E8 ? ? ? ? 85 C0 59 59 74 09 53 50 E8 ? ? ? ? 59 59").count_hint(1).get_first<uint8_t>();
+
+		// Scan forward to find push 6 (STREAMFLAGS_DEPENDENCY | STREAMFLAGS_SCRIPTOWNED) followed by call RequestSpecialModel
+		for (int i = 0; i < 256; i++)
+		{
+			if (pedUndress[i] == 0x6A && pedUndress[i + 1] == 0x06)
+			{
+				for (int j = i + 2; j < i + 16; j++)
+				{
+					if (pedUndress[j] == 0xE8)
+					{
+						InterceptCall(&pedUndress[j], orgRequestSpecialModel, RequestSpecialModel_PreserveSuit);
+						break;
+					}
+				}
+				break;
+			}
+		}
+	}
+	TXN_CATCH();
+
 	// Fixed shell casings being ejected from the Python (revolver), Sniper Rifle, and Laser Scope
 	// Contributed by CanerKaraca
 	try
@@ -4698,6 +4787,27 @@ void Patch_VC_Common()
 
 		auto addGunshellCall = get_pattern("E8 ? ? ? ? 8D 44 24 ? 8D 74 24 ? 8D 7C 24");
 		InterceptCall(addGunshellCall, orgAddGunshell, AddGunshell_SkipForRevolverAndSnipers);
+	}
+	TXN_CATCH();
+
+	// Tommy's idle animations playback fix (Issue #199)
+	// Contributed by CanerKaraca
+	try
+	{
+		// CPlayerPed::ProcessControl calls PlayerControl1stPersonRunAround (0x5357D0 in VC 1.0)
+		auto pc1stPersonCall = pattern("74 33 89 E9 53 E8 ? ? ? ? EB 29 83 BD 44 02 00 00 11 75").count_hint(1).get_first<void>(5);
+		
+		// CPlayerPed::PlayIdleAnimations (0x535D10 in VC 1.0)
+		// Masked out the absolute address of a global variable at offset 0x9
+		auto playIdleAnims = pattern("53 56 57 55 83 EC 38 80 3D ? ? ? ? 00 89 CD 75 0D 8A 85").count_hint(1).get_first<void>();
+
+		if (pc1stPersonCall && playIdleAnims)
+		{
+			ReadCall(pc1stPersonCall, orgPlayerControl1stPersonRunAround);
+			orgPlayIdleAnimations = (void(__thiscall*)(void*, void*))playIdleAnims;
+			
+			InjectHook(pc1stPersonCall, PlayerControl1stPersonRunAround_Hook, HookType::Call);
+		}
 	}
 	TXN_CATCH();
 }

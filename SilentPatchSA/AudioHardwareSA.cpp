@@ -90,7 +90,15 @@ DWORD CAEDataStreamNew::FillBuffer(void* pBuf, DWORD nLen)
 CAEStreamingDecoder::~CAEStreamingDecoder()
 {
 	if ( CAEDataStream::IsNew() )
-		delete reinterpret_cast<CAEDataStreamNew*>(pStream);
+	{
+		auto* p = reinterpret_cast<CAEDataStreamNew*>(pStream);
+		p->~CAEDataStreamNew();
+		CAEDataStreamNew::operator delete(p);
+	}
 	else
-		delete reinterpret_cast<CAEDataStreamOld*>(pStream);
+	{
+		auto* p = reinterpret_cast<CAEDataStreamOld*>(pStream);
+		p->~CAEDataStreamOld();
+		CAEDataStreamOld::operator delete(p);
+	}
 }
