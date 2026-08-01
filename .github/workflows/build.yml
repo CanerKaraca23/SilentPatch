@@ -2,8 +2,9 @@ name: Build SilentPatch
 
 on:
   push:
-    branches: dev
+    branches: [ "test" ]
   pull_request:
+    branches: [ "test" ]
   workflow_dispatch:
 
 jobs:
