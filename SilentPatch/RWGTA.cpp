@@ -75,6 +75,24 @@ bool RWGTA::Patches::TryLocateRwD3D8() try
 	using namespace Memory;
 	using namespace hook::txn;
 
+	// Attempt to locate RwD3D9 render state functions exported by SkyGfx or rwd3d9 backend wrappers
+	const char* moduleNames[] = { "rwd3d9.dll", "skygfx.asi", "skygfx.dll" };
+	for (const char* modName : moduleNames)
+	{
+		if (HMODULE hModule = GetModuleHandleA(modName))
+		{
+			auto pfnD3D9Set = (decltype(RwD3D8SetRenderState)*)GetProcAddress(hModule, "RwD3D9SetRenderState");
+			auto pfnD3D9Get = (decltype(RwD3D8GetRenderState)*)GetProcAddress(hModule, "RwD3D9GetRenderState");
+
+			if (pfnD3D9Set && pfnD3D9Get)
+			{
+				fnRwD3D8SetRenderState = pfnD3D9Set;
+				fnRwD3D8GetRenderState = pfnD3D9Get;
+				return true;
+			}
+		}
+	}
+
 	auto pfnRwD3D8SetRenderState = [] {
 		try {
 			// Everything except for III Steam
