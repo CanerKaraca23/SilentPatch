@@ -3613,7 +3613,7 @@ void Patch_VC_JP()
 void (__thiscall *orgPlayerControl1stPersonRunAround)(void*, void*);
 void (__thiscall *orgPlayIdleAnimations)(void*, void*);
 
-void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* edx, void* padUsed)
+void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/, void* padUsed)
 {
 	orgPlayerControl1stPersonRunAround(_this, padUsed);
 
