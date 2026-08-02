@@ -3321,6 +3321,21 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	}
 	TXN_CATCH();
 
+	// Fix SET_CAR_PROOFS not working for bikes
+	try
+	{
+		using namespace BikeCollisionProofFix;
+
+		// Pattern for: push ebx; push ebp; mov ebp, ecx; sub esp, XX; fld dword ptr [ebp+104h]
+		auto bike_vd_start = pattern("53 55 89 CD 83 EC ? D9 85 04 01 00 00").get_one().get<uint8_t>();
+
+		StackSubSize = bike_vd_start[6]; // Read the 'XX' from 'sub esp, XX'
+		JumpBack = bike_vd_start + 13;   // Jump back after our hook (7 bytes prologue + 6 bytes fld)
+
+		InjectHook(bike_vd_start + 7, CBike_VehicleDamage_Hook, HookType::Jump);
+	}
+	TXN_CATCH();
+
 	// Mipmapping
 	// Contributed by CanerKaraca
 	if (const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"EnableMipMaps", 0, wcModulePath); INIoption != 0) try
@@ -3392,18 +3407,6 @@ void InjectDelayedPatches()
 void Patch_VC_10(uint32_t width, uint32_t height)
 {
 	using namespace Memory::DynBase;
-
-	// Temporary Logger for CBike::VehicleDamage pattern
-	if (FILE* f = fopen("CBike_VehicleDamage_Pattern.log", "w")) {
-		uint8_t* ptr = (uint8_t*)0x614860;
-		fprintf(f, "CBike::VehicleDamage (0x614860) bytes:\n");
-		for (int i = 0; i < 64; i++) {
-			fprintf(f, "%02X ", ptr[i]);
-			if ((i + 1) % 16 == 0) fprintf(f, "\n");
-		}
-		fprintf(f, "\n");
-		fclose(f);
-	}
 
 	RsGlobal.Bind(DynBaseAddress(reinterpret_cast<RsGlobalType**>(0x602D32)));
 
@@ -3618,6 +3621,39 @@ void Patch_VC_JP()
 	Patch<DWORD>(0x47B1FE + 0x1CC + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x47C266 + 0x22E + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x481E8A + 0x4FE + 0x2, 0x94ABD8);
+}
+
+// Fix SET_CAR_PROOFS not working for bikes
+namespace BikeCollisionProofFix
+{
+	static void* JumpBack;
+	static uint8_t StackSubSize;
+
+	__declspec(naked) static void CBike_VehicleDamage_Hook()
+	{
+		_asm
+		{
+			// ebp contains 'this' (CBike*) based on the original prologue "53 55 89 CD 83 EC XX"
+			// Check CEntity::bCollisionProof which is at offset 0x4F bit 3.
+			mov al, [ebp+4Fh]
+			test al, 8
+			jz NotProof
+
+			// CollisionProof is TRUE: undo the prologue (pop ebp, pop ebx)
+			// First, add back to esp what was subtracted.
+			movzx eax, byte ptr [StackSubSize]
+			add esp, eax
+			pop ebp
+			pop ebx
+			ret
+
+		NotProof:
+			// CollisionProof is FALSE: execute the original instruction that we overwrote.
+			// The original instruction at bike_vd_start + 7 is `fld dword ptr [ebp+104h]`.
+			fld dword ptr [ebp+104h]
+			jmp dword ptr [JumpBack]
+		}
+	}
 }
 
 // Tommy's idle animations playback fix
