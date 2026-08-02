@@ -2493,20 +2493,26 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 // ============= Boat color bug fix =============
 namespace BoatColorFix
 {
-	static RpAtomic* (*orgSetAtomicRendererCB_Boat)(RpAtomic* atomic, void* data);
-	static RpAtomic* __cdecl SetAtomicRendererCB_Boat_AddMaterialColorModulation(RpAtomic* atomic, void* data)
+	static void* (*orgSetAtomicRendererCB_Boat)(void* atomic, void* data);
+	static void* __cdecl SetAtomicRendererCB_Boat_AddMaterialColorModulation(void* atomic, void* data)
 	{
 		// Run original callback to set render callback
-		RpAtomic* result = orgSetAtomicRendererCB_Boat(atomic, data);
+		void* result = orgSetAtomicRendererCB_Boat(atomic, data);
 
 		// Fix missing rpGEOMETRYMODULATEMATERIALCOLOR on boat_hi since it is attached to a child frame,
 		// and PreprocessHierarchy only applies this flag to the first object of the root frame
 		if (result != nullptr)
 		{
-			RpGeometry* geo = RpAtomicGetGeometry(result);
+			struct MockRpAtomic {
+				uint8_t pad[24];
+				void* geometry;
+			};
+
+			void* geo = reinterpret_cast<MockRpAtomic*>(result)->geometry;
 			if (geo != nullptr)
 			{
-				RpGeometrySetFlags(geo, RpGeometryGetFlags(geo) | 0x40); // 0x40 is rpGEOMETRYMODULATEMATERIALCOLOR
+				uint32_t* flags = reinterpret_cast<uint32_t*>(reinterpret_cast<uintptr_t>(geo) + 8);
+				*flags |= 0x40; // 0x40 is rpGEOMETRYMODULATEMATERIALCOLOR
 			}
 		}
 
@@ -3667,11 +3673,12 @@ void Patch_VC_Common()
 		using namespace BoatColorFix;
 
 		// Find SetAtomicRendererCB_Boat from its usage in CVehicleModelInfo::SetAtomicRenderCallbacks
-		auto push_boat_cb = pattern("83 F8 01 75 ? 5? 68").get_one();
+		// 80 F8 01 75 ? 5? 68 is cmp al, 1
+		auto push_boat_cb = hook::txn::pattern("80 F8 01 75 ? 5? 68").get_one();
 
 		void** set_atomic_renderer_cb_boat = push_boat_cb.get<void**>(6 + 1);
-		orgSetAtomicRendererCB_Boat = static_cast<RpAtomic* (*)(RpAtomic*, void*)>(*set_atomic_renderer_cb_boat);
-		Patch(set_atomic_renderer_cb_boat, SetAtomicRendererCB_Boat_AddMaterialColorModulation);
+		orgSetAtomicRendererCB_Boat = reinterpret_cast<void* (*)(void*, void*)>(*set_atomic_renderer_cb_boat);
+		Memory::VP::Patch(set_atomic_renderer_cb_boat, SetAtomicRendererCB_Boat_AddMaterialColorModulation);
 	}
 	TXN_CATCH();
 
