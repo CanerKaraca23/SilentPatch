@@ -2795,6 +2795,50 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	TXN_CATCH();
 
 
+	// Bug #227: The sound of acceleration for all vehicles and bikes (except Faggio) are paused and goes to next gear sounds immediately before it's sound effect reaches to the end of it (except for helicopters and boats)
+	// As agreed with the user, we implement a diagnostic logger to precisely identify the correct assembly patterns
+	// surrounding `gearSoundLength -= 1000` inside `cAudioManager::ProcessPlayersVehicleEngine`.
+	// The user will use this logger to dump the memory bytes and report them back for a highly specific patch in the next iteration.
+	if (GetPrivateProfileIntW(L"EnableGearSoundLogger", 0, L"SilentPatch", wcModulePath) != 0)
+	{
+		try
+		{
+			if (const auto f = _wfopen(L"gear_sound_logger.txt", L"w"))
+			{
+				fprintf(f, "Gear Sound Logger for Issue #227\n");
+				fprintf(f, "Please provide the following offsets to the developer:\n\n");
+
+				auto log_pattern = [&](const char* pat, const char* desc) {
+					hook::pattern p(pat);
+					p.for_each_result([&](hook::pattern_match match) {
+						void* addr = match.get<void>(0);
+						fprintf(f, "[%s] Found at: %p\n", desc, addr);
+						uint8_t* pAddr = static_cast<uint8_t*>(addr);
+						fprintf(f, "Bytes (64 bytes total): ");
+						for (int i = 0; i < 64; i++) {
+							fprintf(f, "%02X ", pAddr[i]);
+						}
+						fprintf(f, "\n\n");
+					});
+				};
+
+				// Log candidates for subtracting 1000 (0x3E8)
+				log_pattern("81 ? E8 03 00 00", "SUB reg/mem, 1000 (6 bytes)");
+				log_pattern("81 ? ? E8 03 00 00", "SUB mem, 1000 (7 bytes)");
+				log_pattern("2D E8 03 00 00", "SUB eax, 1000");
+				log_pattern("8D ? 18 FC FF FF", "LEA reg, [reg - 1000]");
+
+				// Log switch statement constants to locate cAudioManager::ProcessPlayersVehicleEngine
+				log_pattern("C7 ? ? 28 12 00 00", "MOV [mem], 4648");
+				log_pattern("C7 ? ? 98 0D 00 00", "MOV [mem], 3480");
+
+				fclose(f);
+			}
+		}
+		TXN_CATCH();
+	}
+
+
 	// Fix the onscreen counter bar placement and shadow not scaling to resolution
 	if (OnscreenCounterBarFixes::HasGameBindings()) try
 	{
