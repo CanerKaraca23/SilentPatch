@@ -3387,7 +3387,10 @@ void InjectDelayedPatches()
 
 	try
 	{
-		FILE* hLog = _wfopen(L"SilentPatchVC_logger.txt", L"w");
+		wchar_t wcLogPath[MAX_PATH];
+		wcscpy_s(wcLogPath, wcModulePath);
+		PathRenameExtensionW(wcLogPath, L"_logger.txt");
+		FILE* hLog = _wfopen(wcLogPath, L"w");
 		if (hLog)
 		{
 			// Search for m_nAmmoTotal check pattern in CPickup::Update
