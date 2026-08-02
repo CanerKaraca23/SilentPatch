@@ -2490,10 +2490,73 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+#include <fstream>
+#include <iomanip>
+
+static unsigned char* ScriptSpace = nullptr;
+
+static void DumpScriptPatterns()
+{
+	if (!ScriptSpace) return;
+
+	std::ofstream log("SilentPatchVC_DELETE_OBJECT_Patterns.log");
+	if (!log.is_open()) return;
+
+	log << "Scanning ScriptSpace for consecutive DELETE_OBJECT (08 01) patterns...\n";
+
+	const size_t SCRIPT_SIZE = 260512;
+	for (size_t i = 0; i < SCRIPT_SIZE - 20; i++)
+	{
+		// 0x02 is Global Variable, 0x03 is Local Variable
+		if (ScriptSpace[i] == 0x08 && ScriptSpace[i+1] == 0x01 && (ScriptSpace[i+2] == 0x02 || ScriptSpace[i+2] == 0x03))
+		{
+			size_t j = i;
+			int count = 0;
+			while (j < SCRIPT_SIZE - 4 && ScriptSpace[j] == 0x08 && ScriptSpace[j+1] == 0x01 && (ScriptSpace[j+2] == 0x02 || ScriptSpace[j+2] == 0x03))
+			{
+				count++;
+				j += 5; // DELETE_OBJECT var_X is 5 bytes: 08 01 02/03 XX XX
+			}
+
+			if (count >= 4)
+			{
+				log << "Found " << count << " consecutive DELETE_OBJECTs at offset 0x" << std::hex << std::uppercase << i << std::nouppercase << std::dec << ":\n";
+				for (int k = 0; k < count; k++)
+				{
+					size_t offset = i + k * 5;
+					log << "  08 01 "
+						<< std::hex << std::setw(2) << std::setfill('0') << (int)ScriptSpace[offset+2] << " "
+						<< std::setw(2) << std::setfill('0') << (int)ScriptSpace[offset+3] << " "
+						<< std::setw(2) << std::setfill('0') << (int)ScriptSpace[offset+4] << std::dec << "\n";
+				}
+				log << "\n";
+				i = j - 1; // Skip ahead
+			}
+		}
+	}
+	log << "Scan complete.\n";
+}
+
+static void (*orgTheScriptsLoad)();
+static void TheScriptsLoad_PatternLogger()
+{
+	orgTheScriptsLoad();
+	DumpScriptPatterns();
+}
+
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
 	using namespace hook::txn;
+
+	unsigned char* pScriptSpace = AddressByVersion<unsigned char*>(0x821280, 0x821288, 0x820288);
+	if (pScriptSpace)
+	{
+		ScriptSpace = pScriptSpace;
+
+		auto the_scripts_load = get_pattern("E8 ? ? ? ? 59 E8 ? ? ? ? E8 ? ? ? ? 31 DB", 6);
+		InterceptCall(the_scripts_load, orgTheScriptsLoad, TheScriptsLoad_PatternLogger);
+	}
 
 	const ModuleList moduleList;
 
