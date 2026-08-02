@@ -2490,6 +2490,31 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+// ============= Boat color bug fix =============
+namespace BoatColorFix
+{
+	static RpAtomic* (*orgSetAtomicRendererCB_Boat)(RpAtomic* atomic, void* data);
+	static RpAtomic* __cdecl SetAtomicRendererCB_Boat_AddMaterialColorModulation(RpAtomic* atomic, void* data)
+	{
+		// Run original callback to set render callback
+		RpAtomic* result = orgSetAtomicRendererCB_Boat(atomic, data);
+
+		// Fix missing rpGEOMETRYMODULATEMATERIALCOLOR on boat_hi since it is attached to a child frame,
+		// and PreprocessHierarchy only applies this flag to the first object of the root frame
+		if (result != nullptr)
+		{
+			RpGeometry* geo = RpAtomicGetGeometry(result);
+			if (geo != nullptr)
+			{
+				RpGeometrySetFlags(geo, RpGeometryGetFlags(geo) | 0x40); // 0x40 is rpGEOMETRYMODULATEMATERIALCOLOR
+			}
+		}
+
+		return result;
+	}
+}
+
+
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
@@ -3635,6 +3660,20 @@ void Patch_VC_Common()
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
 
 	const HMODULE hGameModule = GetModuleHandle(nullptr);
+
+	// Fix missing rpGEOMETRYMODULATEMATERIALCOLOR on boat_hi
+	try
+	{
+		using namespace BoatColorFix;
+
+		// Find SetAtomicRendererCB_Boat from its usage in CVehicleModelInfo::SetAtomicRenderCallbacks
+		auto push_boat_cb = pattern("83 F8 01 75 ? 5? 68").get_one();
+
+		void** set_atomic_renderer_cb_boat = push_boat_cb.get<void**>(6 + 1);
+		orgSetAtomicRendererCB_Boat = static_cast<RpAtomic* (*)(RpAtomic*, void*)>(*set_atomic_renderer_cb_boat);
+		Patch(set_atomic_renderer_cb_boat, SetAtomicRendererCB_Boat_AddMaterialColorModulation);
+	}
+	TXN_CATCH();
 
 	// Fix text shadows not scaling to resolution
 	if (ShadowScalingFixes::HasGameBindings()) try
