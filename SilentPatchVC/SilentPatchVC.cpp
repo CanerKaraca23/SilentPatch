@@ -4818,27 +4818,34 @@ void Patch_VC_Common()
 		fopen_s(&f, "glass_vc_logger.txt", "w");
 		if (f)
 		{
-			// Try to find the WindowRespondsToCollision method or parts of it
-			// It compares against 300.0f
-			auto fld300 = pattern("D8 1D ? ? ? ? DF E0 F6 C4 ? 75");
-			fprintf(f, "Found %zu fld300 candidates\n", fld300.size());
-			for (size_t i = 0; i < fld300.size(); i++) {
-				fprintf(f, "fld300: %p\n", fld300.get(i).get<void>());
+			auto gen_panes_54 = pattern("E8 ? ? ? ? 83 C4 54");
+			fprintf(f, "Found %zu gen_panes_54 candidates\n", gen_panes_54.size());
+			for (size_t i = 0; i < gen_panes_54.size(); i++) {
+				fprintf(f, "gen_panes_54: %p\n", gen_panes_54.get(i).get<void>());
 			}
 
-			// Looking for PlayOneShotScriptObject which plays SCRIPT_SOUND_GLASS_BREAK_L
-			// Actually we can look for "E8 ? ? ? ? 83 C4 ? 8A 06" just in case it's the same as III
-			auto gen_panes = pattern("E8 ? ? ? ? 83 C4 ? 8A 06");
-			fprintf(f, "Found %zu gen_panes candidates\n", gen_panes.size());
-			for (size_t i = 0; i < gen_panes.size(); i++) {
-				fprintf(f, "gen_panes: %p\n", gen_panes.get(i).get<void>());
+			auto gen_panes_48 = pattern("E8 ? ? ? ? 83 C4 48");
+			fprintf(f, "Found %zu gen_panes_48 candidates\n", gen_panes_48.size());
+			for (size_t i = 0; i < gen_panes_48.size(); i++) {
+				fprintf(f, "gen_panes_48: %p\n", gen_panes_48.get(i).get<void>());
 			}
 
-			// Matrix mult call from WindowRespondsToCollision
-			auto mat_mult = pattern("E8 ? ? ? ? 8B 44 24 ? 83 C4 ? 89 44 24 ? 8B 44 24 ? 89 44 24 ? 8B 4C 24 ? 8D 44 24");
-			fprintf(f, "Found %zu mat_mult candidates\n", mat_mult.size());
-			for (size_t i = 0; i < mat_mult.size(); i++) {
-				fprintf(f, "mat_mult: %p\n", mat_mult.get(i).get<void>());
+			auto gen_panes_4c = pattern("E8 ? ? ? ? 83 C4 4C");
+			fprintf(f, "Found %zu gen_panes_4c candidates\n", gen_panes_4c.size());
+			for (size_t i = 0; i < gen_panes_4c.size(); i++) {
+				fprintf(f, "gen_panes_4c: %p\n", gen_panes_4c.get(i).get<void>());
+			}
+
+			auto fld300_0D = pattern("D8 0D ? ? ? ? DF E0 F6 C4 ? 75");
+			fprintf(f, "Found %zu fld300_0D candidates\n", fld300_0D.size());
+			for (size_t i = 0; i < fld300_0D.size(); i++) {
+				fprintf(f, "fld300_0D: %p\n", fld300_0D.get(i).get<void>());
+			}
+
+			auto mat_mult_0c = pattern("E8 ? ? ? ? 83 C4 0C 89 44 24");
+			fprintf(f, "Found %zu mat_mult_0c candidates\n", mat_mult_0c.size());
+			for (size_t i = 0; i < mat_mult_0c.size(); i++) {
+				fprintf(f, "mat_mult_0c: %p\n", mat_mult_0c.get(i).get<void>());
 			}
 
 			fclose(f);
