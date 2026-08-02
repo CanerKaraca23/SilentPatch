@@ -3321,6 +3321,21 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	}
 	TXN_CATCH();
 
+	// Fix SET_CAR_PROOFS not working for bikes
+	try
+	{
+		using namespace BikeCollisionProofFix;
+
+		// Pattern for: push ebx; push ebp; mov ebp, ecx; sub esp, XX; fld dword ptr [ebp+104h]
+		auto bike_vd_start = pattern("53 55 89 CD 83 EC ? D9 85 04 01 00 00").get_one().get<uint8_t>();
+
+		StackSubSize = bike_vd_start[6];
+		JumpBack = bike_vd_start + 13; // 7 (prologue) + 6 (fld instruction) = 13
+
+		InjectHook(bike_vd_start + 7, CBike_VehicleDamage_Hook, HookType::Jump);
+	}
+	TXN_CATCH();
+
 	// Mipmapping
 	// Contributed by CanerKaraca
 	if (const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"EnableMipMaps", 0, wcModulePath); INIoption != 0) try
@@ -3392,18 +3407,6 @@ void InjectDelayedPatches()
 void Patch_VC_10(uint32_t width, uint32_t height)
 {
 	using namespace Memory::DynBase;
-
-	// Temporary Logger for CBike::VehicleDamage pattern
-	if (FILE* f = fopen("CBike_VehicleDamage_Pattern.log", "w")) {
-		uint8_t* ptr = (uint8_t*)0x614860;
-		fprintf(f, "CBike::VehicleDamage (0x614860) bytes:\n");
-		for (int i = 0; i < 64; i++) {
-			fprintf(f, "%02X ", ptr[i]);
-			if ((i + 1) % 16 == 0) fprintf(f, "\n");
-		}
-		fprintf(f, "\n");
-		fclose(f);
-	}
 
 	RsGlobal.Bind(DynBaseAddress(reinterpret_cast<RsGlobalType**>(0x602D32)));
 
@@ -3618,6 +3621,35 @@ void Patch_VC_JP()
 	Patch<DWORD>(0x47B1FE + 0x1CC + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x47C266 + 0x22E + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x481E8A + 0x4FE + 0x2, 0x94ABD8);
+}
+
+// Fix SET_CAR_PROOFS not working for bikes
+namespace BikeCollisionProofFix
+{
+	static uint8_t StackSubSize;
+	static void* JumpBack;
+
+	__declspec(naked) static void CBike_VehicleDamage_Hook()
+	{
+		_asm
+		{
+			// Check bCollisionProof (bit 3 of byte at 0x4F). ebp holds CBike*
+			mov al, [ebp+4Fh]
+			test al, 8
+			jz NotProof
+
+			// Undo prologue (sub esp, StackSubSize; mov ebp, ecx; push ebp; push ebx)
+			movzx eax, byte ptr [StackSubSize]
+			add esp, eax
+			pop ebp
+			pop ebx
+			ret
+
+		NotProof:
+			fld dword ptr [ebp+104h]
+			jmp dword ptr [JumpBack]
+		}
+	}
 }
 
 // Tommy's idle animations playback fix
