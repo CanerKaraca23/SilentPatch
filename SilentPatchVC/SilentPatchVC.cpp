@@ -4810,6 +4810,41 @@ void Patch_VC_Common()
 		}
 	}
 	TXN_CATCH();
+
+	// Logger for Glass issue
+	try
+	{
+		FILE* f = nullptr;
+		fopen_s(&f, "glass_vc_logger.txt", "w");
+		if (f)
+		{
+			// Try to find the WindowRespondsToCollision method or parts of it
+			// It compares against 300.0f
+			auto fld300 = pattern("D8 1D ? ? ? ? DF E0 F6 C4 ? 75").get(0);
+			fprintf(f, "Found %zu fld300 candidates\n", fld300.size());
+			for (auto p : fld300) {
+				fprintf(f, "fld300: %p\n", p);
+			}
+
+			// Looking for PlayOneShotScriptObject which plays SCRIPT_SOUND_GLASS_BREAK_L
+			// Actually we can look for "E8 ? ? ? ? 83 C4 ? 8A 06" just in case it's the same as III
+			auto gen_panes = pattern("E8 ? ? ? ? 83 C4 ? 8A 06").get(0);
+			fprintf(f, "Found %zu gen_panes candidates\n", gen_panes.size());
+			for (auto p : gen_panes) {
+				fprintf(f, "gen_panes: %p\n", p);
+			}
+
+			// Matrix mult call from WindowRespondsToCollision
+			auto mat_mult = pattern("E8 ? ? ? ? 8B 44 24 ? 83 C4 ? 89 44 24 ? 8B 44 24 ? 89 44 24 ? 8B 4C 24 ? 8D 44 24").get(0);
+			fprintf(f, "Found %zu mat_mult candidates\n", mat_mult.size());
+			for (auto p : mat_mult) {
+				fprintf(f, "mat_mult: %p\n", p);
+			}
+
+			fclose(f);
+		}
+	}
+	TXN_CATCH();
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)

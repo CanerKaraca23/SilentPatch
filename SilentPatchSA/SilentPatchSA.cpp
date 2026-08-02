@@ -11283,6 +11283,40 @@ void Patch_SA_NewBinaries_Common(HINSTANCE hInstance)
 		Patch(generate_road_blocks.get<void>(0x48), army_model_id);
 	}
 	TXN_CATCH();
+
+	// Logger for Glass SA
+	try
+	{
+		FILE* f = nullptr;
+		fopen_s(&f, "glass_sa_logger.txt", "w");
+		if (f)
+		{
+			// WindowRespondsToCollision in SA compares with 300.0f
+			auto fld300 = pattern("D8 1D ? ? ? ? DF E0 F6 C4 ? 75").get(0);
+			fprintf(f, "Found %zu fld300 candidates\n", fld300.size());
+			for (auto p : fld300) {
+				fprintf(f, "fld300: %p\n", p);
+			}
+
+			// Looking for a possible GeneratePanesForWindow call
+			auto gen_panes = pattern("E8 ? ? ? ? 83 C4 ? 8A 06").get(0);
+			fprintf(f, "Found %zu gen_panes candidates\n", gen_panes.size());
+			for (auto p : gen_panes) {
+				fprintf(f, "gen_panes: %p\n", p);
+			}
+
+			// Look for AudioEngine.ReportGlassCollisionEvent(AE_GLASS_BREAK_FAST...)
+			// AE_GLASS_BREAK_FAST is 0x7E
+			auto audio_glass = pattern("6A 7E 8D 44 24 ? 50 E8").get(0);
+			fprintf(f, "Found %zu audio_glass candidates\n", audio_glass.size());
+			for (auto p : audio_glass) {
+				fprintf(f, "audio_glass: %p\n", p);
+			}
+
+			fclose(f);
+		}
+	}
+	TXN_CATCH();
 }
 
 
