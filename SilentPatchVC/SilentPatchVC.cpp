@@ -3624,6 +3624,29 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 	}
 }
 
+
+// ============= Missing cheat messages =============
+namespace MissingCheatMessageFix
+{
+	static char* pKeyBoardCheatString = nullptr;
+	static void (*SetHelpMessage)(const wchar_t* message, bool quickMessage, bool permanent);
+
+	static void (__fastcall* orgAddToPCCheatString)(void* pad, void*, char c);
+
+	static void __fastcall AddToPCCheatString_Hook(void* pad, void*, char c) {
+		orgAddToPCCheatString(pad, nullptr, c);
+
+		// In standard logic, KeyBoardCheatString[0] is always set to `c`.
+		// If a cheat matches, the game resets KeyBoardCheatString[0] to ' ' (or ' ') to clear the buffer.
+		// Therefore, if KeyBoardCheatString[0] != c, a cheat has just been activated.
+		if (c != 0 && c != ' ' && pKeyBoardCheatString && pKeyBoardCheatString[0] != c) {
+			if (SetHelpMessage) {
+				SetHelpMessage(L"Cheat Activated", true, false);
+			}
+		}
+	}
+}
+
 void Patch_VC_Common()
 {
 	using namespace Memory;
@@ -4787,6 +4810,20 @@ void Patch_VC_Common()
 
 		auto addGunshellCall = get_pattern("E8 ? ? ? ? 8D 44 24 ? 8D 74 24 ? 8D 7C 24");
 		InterceptCall(addGunshellCall, orgAddGunshell, AddGunshell_SkipForRevolverAndSnipers);
+	}
+	TXN_CATCH();
+
+
+	// Missing PC-specific cheat messages
+	try
+	{
+		using namespace MissingCheatMessageFix;
+
+		pKeyBoardCheatString = reinterpret_cast<char*>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0xA10942, 0xA1094A, 0xA0F94A)));
+		SetHelpMessage = reinterpret_cast<decltype(SetHelpMessage)>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0x55BFC0, 0x55BFE0, 0x55BEB0)));
+		void* callAddr = reinterpret_cast<void*>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0x602BE7, 0x602BC7, 0x602807)));
+
+		Memory::DynBase::InterceptCall(callAddr, orgAddToPCCheatString, AddToPCCheatString_Hook);
 	}
 	TXN_CATCH();
 
