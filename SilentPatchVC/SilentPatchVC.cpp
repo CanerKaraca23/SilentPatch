@@ -4821,7 +4821,7 @@ void Patch_VC_Common()
 
 		pKeyBoardCheatString = reinterpret_cast<char*>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0xA10942, 0xA1094A, 0xA0F94A)));
 		SetHelpMessage = reinterpret_cast<decltype(SetHelpMessage)>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0x55BFC0, 0x55BFE0, 0x55BEB0)));
-		void* callAddr = reinterpret_cast<void*>(Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0x602BE7, 0x602BC7, 0x602807)));
+		uintptr_t callAddr = Memory::DynBaseAddress(AddressByVersion<uintptr_t>(0x602BE7, 0x602BC7, 0x602807));
 
 		Memory::DynBase::InterceptCall(callAddr, orgAddToPCCheatString, AddToPCCheatString_Hook);
 	}
