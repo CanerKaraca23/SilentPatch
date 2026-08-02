@@ -3393,6 +3393,18 @@ void Patch_VC_10(uint32_t width, uint32_t height)
 {
 	using namespace Memory::DynBase;
 
+	// Temporary Logger for CBike::VehicleDamage pattern
+	if (FILE* f = fopen("CBike_VehicleDamage_Pattern.log", "w")) {
+		uint8_t* ptr = (uint8_t*)0x614860;
+		fprintf(f, "CBike::VehicleDamage (0x614860) bytes:\n");
+		for (int i = 0; i < 64; i++) {
+			fprintf(f, "%02X ", ptr[i]);
+			if ((i + 1) % 16 == 0) fprintf(f, "\n");
+		}
+		fprintf(f, "\n");
+		fclose(f);
+	}
+
 	RsGlobal.Bind(DynBaseAddress(reinterpret_cast<RsGlobalType**>(0x602D32)));
 
 	InjectHook(0x5433BD, FixedRefValue);
