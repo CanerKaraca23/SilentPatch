@@ -11292,25 +11292,25 @@ void Patch_SA_NewBinaries_Common(HINSTANCE hInstance)
 		if (f)
 		{
 			// WindowRespondsToCollision in SA compares with 300.0f
-			auto fld300 = pattern("D8 1D ? ? ? ? DF E0 F6 C4 ? 75").get(0);
+			auto fld300 = pattern("D8 1D ? ? ? ? DF E0 F6 C4 ? 75");
 			fprintf(f, "Found %zu fld300 candidates\n", fld300.size());
-			for (auto p : fld300) {
-				fprintf(f, "fld300: %p\n", p);
+			for (size_t i = 0; i < fld300.size(); i++) {
+				fprintf(f, "fld300: %p\n", fld300.get(i).get<void>());
 			}
 
 			// Looking for a possible GeneratePanesForWindow call
-			auto gen_panes = pattern("E8 ? ? ? ? 83 C4 ? 8A 06").get(0);
+			auto gen_panes = pattern("E8 ? ? ? ? 83 C4 ? 8A 06");
 			fprintf(f, "Found %zu gen_panes candidates\n", gen_panes.size());
-			for (auto p : gen_panes) {
-				fprintf(f, "gen_panes: %p\n", p);
+			for (size_t i = 0; i < gen_panes.size(); i++) {
+				fprintf(f, "gen_panes: %p\n", gen_panes.get(i).get<void>());
 			}
 
 			// Look for AudioEngine.ReportGlassCollisionEvent(AE_GLASS_BREAK_FAST...)
 			// AE_GLASS_BREAK_FAST is 0x7E
-			auto audio_glass = pattern("6A 7E 8D 44 24 ? 50 E8").get(0);
+			auto audio_glass = pattern("6A 7E 8D 44 24 ? 50 E8");
 			fprintf(f, "Found %zu audio_glass candidates\n", audio_glass.size());
-			for (auto p : audio_glass) {
-				fprintf(f, "audio_glass: %p\n", p);
+			for (size_t i = 0; i < audio_glass.size(); i++) {
+				fprintf(f, "audio_glass: %p\n", audio_glass.get(i).get<void>());
 			}
 
 			fclose(f);
