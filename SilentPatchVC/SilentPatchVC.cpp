@@ -3385,6 +3385,48 @@ void InjectDelayedPatches()
 
 	InjectDelayedPatches_VC_Common( hasDebugMenu, wcModulePath );
 
+	try
+	{
+		FILE* hLog = _wfopen(L"SilentPatchVC_logger.txt", L"w");
+		if (hLog)
+		{
+			// Search for m_nAmmoTotal check pattern in CPickup::Update
+			// The original logic checks if m_nAmmoTotal == 0.
+			// In VC, CPed + 0x3A8 is the weapon array, and m_nAmmoTotal is at offset 0x8.
+			// So it's something like 83 7C ?? ?? 00 or 83 BC ?? ?? ?? 00 00 00
+			fwprintf(hLog, L"Searching for pattern...\n");
+
+			// We search for a known call in CPickups::Update (like CWeaponInfo::GetWeaponInfo)
+			// Actually, let's search for the pattern checking ammo and slots:
+			// In VC: slot is either 3, 4, 5 (shotgun, smg, rifle)
+			// It probably does a CMP [REG + REG * 8 + ...], 0
+			// Let's search a wide range around CPickup::Update 0x440030
+
+			uint8_t* pStart = (uint8_t*)0x440030;
+			uint8_t* pEnd = pStart + 0x1000;
+			for (uint8_t* p = pStart; p < pEnd; ++p)
+			{
+				if (*p == 0x83 && *(p+2) == 0x00) // maybe cmp dword ptr [reg+disp8], 0
+				{
+					fwprintf(hLog, L"Found 83 ? 00 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
+				}
+				if (*p == 0x83 && *(p+6) == 0x00) // maybe cmp dword ptr [reg+disp32], 0
+				{
+					fwprintf(hLog, L"Found 83 ? ? ? ? ? 00 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
+				}
+				if (*p == 0x39) // cmp r/m32, r32
+				{
+					fwprintf(hLog, L"Found 39 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
+				}
+			}
+			fwprintf(hLog, L"Done searching CPickup::Update.\n");
+			fclose(hLog);
+		}
+	}
+	catch (...)
+	{
+	}
+
 	Common::Patches::III_VC_DelayedCommon( hasDebugMenu, wcModulePath );
 	Memory::FlushCodeChanges();
 }
