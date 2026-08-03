@@ -2490,6 +2490,46 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+
+// ============= Fix Predator not triggering police wanted level and logger =============
+namespace PredatorWantedLevelFix
+{
+	static bool HasGameBindings()
+	{
+		return EnsureBindings(FindPlayerPed);
+	}
+
+	static bool g_bPredatorFiring = false;
+	static void* orgFireOneInstantHitRound;
+
+	static void __cdecl FireOneInstantHitRound_Hook(CVector* source, CVector* target, int32_t damage)
+	{
+		g_bPredatorFiring = true;
+		reinterpret_cast<void(__cdecl*)(CVector*, CVector*, int32_t)>(orgFireOneInstantHitRound)(source, target, damage);
+		g_bPredatorFiring = false;
+	}
+
+	static void (__thiscall* orgInflictDamage_Veh)(void* veh, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos);
+	static void __fastcall InflictDamage_Veh_Hook(void* veh, void*, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
+	{
+		if (g_bPredatorFiring && damagedBy == nullptr)
+		{
+			damagedBy = FindPlayerPed.Call();
+		}
+		orgInflictDamage_Veh(veh, damagedBy, weaponType, damage, pos);
+	}
+
+	static void (__thiscall* orgInflictDamage_Ped)(void* ped, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction);
+	static void __fastcall InflictDamage_Ped_Hook(void* ped, void*, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	{
+		if (g_bPredatorFiring && damagedBy == nullptr)
+		{
+			damagedBy = FindPlayerPed.Call();
+		}
+		orgInflictDamage_Ped(ped, damagedBy, weaponType, damage, pedPiece, direction);
+	}
+}
+
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
@@ -2521,6 +2561,53 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 			DebugMenuEntrySetWrap(e, true);
 		}
 	}
+
+
+
+	if (PredatorWantedLevelFix::HasGameBindings()) try
+	{
+		using namespace PredatorWantedLevelFix;
+
+		auto fireMachineGuns = pattern("83 EC 28 53 55 56 57 8B F9 8B 87 ? ? ? ? 8B 88").get_first();
+		if (fireMachineGuns)
+		{
+			// Logger
+			if (bHasDebugMenu)
+			{
+				static bool bLogPredator = false;
+				DebugMenuAddVar("SilentPatch", "Log Predator Assembly", &bLogPredator, [fireMachineGuns]() {
+					FILE* f = fopen("SilentPatch_PredatorPatterns_VC.log", "w");
+					if (f)
+					{
+						fprintf(f, "CVehicle::FireFixedMachineGuns found at %p\n", fireMachineGuns);
+						uint8_t* funcStart = (uint8_t*)fireMachineGuns;
+						for (int i = 0; i < 500; i++)
+						{
+							fprintf(f, "%02X ", funcStart[i]);
+							if ((i + 1) % 16 == 0) fprintf(f, "\n");
+						}
+						fprintf(f, "\n");
+						fclose(f);
+					}
+				});
+			}
+
+			// Find calls to FireOneInstantHitRound
+			auto calls = pattern("E8 ? ? ? ? 83 C4 0C").count(2);
+			if (calls.size() == 2)
+			{
+				InterceptCall(calls.get(0).get<void>(0), orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
+				InterceptCall(calls.get(1).get<void>(0), orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
+
+				auto inflictDamageVeh = pattern("55 8B EC 83 EC 18 53 56 57 8B F9 8B 45 08").get_first();
+				if (inflictDamageVeh) InterceptCall(inflictDamageVeh, orgInflictDamage_Veh, InflictDamage_Veh_Hook);
+
+				auto inflictDamagePed = pattern("55 8B EC 83 E4 F0 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 8B 85").get_first();
+				if (inflictDamagePed) InterceptCall(inflictDamagePed, orgInflictDamage_Ped, InflictDamage_Ped_Hook);
+			}
+		}
+	}
+	TXN_CATCH();
 
 
 	// Corrected siren corona placement for emergency vehicles
