@@ -2490,6 +2490,39 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+// Fix SET_CAR_PROOFS not working for bikes
+namespace BikeCollisionProofFix
+{
+	static void* JumpBack;
+	static uint8_t StackSubSize;
+
+	__declspec(naked) static void CBike_VehicleDamage_Hook()
+	{
+		_asm
+		{
+			// ebp contains 'this' (CBike*) based on the original prologue "53 55 89 CD 83 EC XX"
+			// Check CEntity::bCollisionProof which is at offset 0x4F bit 3.
+			mov al, [ebp+4Fh]
+			test al, 8
+			jz NotProof
+
+			// CollisionProof is TRUE: undo the prologue (pop ebp, pop ebx)
+			// First, add back to esp what was subtracted.
+			movzx eax, byte ptr [StackSubSize]
+			add esp, eax
+			pop ebp
+			pop ebx
+			ret
+
+		NotProof:
+			// CollisionProof is FALSE: execute the original instruction that we overwrote.
+			// The original instruction at bike_vd_start + 7 is `fld dword ptr [ebp+104h]`.
+			fld dword ptr [ebp+104h]
+			jmp dword ptr [JumpBack]
+		}
+	}
+}
+
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
@@ -3621,39 +3654,6 @@ void Patch_VC_JP()
 	Patch<DWORD>(0x47B1FE + 0x1CC + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x47C266 + 0x22E + 0x2, 0x94ABD8);
 	Patch<DWORD>(0x481E8A + 0x4FE + 0x2, 0x94ABD8);
-}
-
-// Fix SET_CAR_PROOFS not working for bikes
-namespace BikeCollisionProofFix
-{
-	static void* JumpBack;
-	static uint8_t StackSubSize;
-
-	__declspec(naked) static void CBike_VehicleDamage_Hook()
-	{
-		_asm
-		{
-			// ebp contains 'this' (CBike*) based on the original prologue "53 55 89 CD 83 EC XX"
-			// Check CEntity::bCollisionProof which is at offset 0x4F bit 3.
-			mov al, [ebp+4Fh]
-			test al, 8
-			jz NotProof
-
-			// CollisionProof is TRUE: undo the prologue (pop ebp, pop ebx)
-			// First, add back to esp what was subtracted.
-			movzx eax, byte ptr [StackSubSize]
-			add esp, eax
-			pop ebp
-			pop ebx
-			ret
-
-		NotProof:
-			// CollisionProof is FALSE: execute the original instruction that we overwrote.
-			// The original instruction at bike_vd_start + 7 is `fld dword ptr [ebp+104h]`.
-			fld dword ptr [ebp+104h]
-			jmp dword ptr [JumpBack]
-		}
-	}
 }
 
 // Tommy's idle animations playback fix
