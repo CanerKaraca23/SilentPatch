@@ -2794,15 +2794,17 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	}
 	TXN_CATCH();
 
+
 	// Bug #227: The sound of acceleration for all vehicles and bikes (except Faggio) are paused and goes to next gear sounds immediately before it's sound effect reaches to the end of it (except for helicopters and boats)
 	// As requested by the user, we create a logger to dump surrounding bytes whenever 1000 (0x3E8) is subtracted
 	// before a call and another subtraction, so the correct address can be safely patched later without hallucinating patterns.
 	// Guarded by an INI check so it does not run in production for end users.
-	if (GetPrivateProfileIntW(L"EnableGearSoundLogger", 0, L"SilentPatch", wcModulePath) != 0)
+	if (GetPrivateProfileIntW(L"EnableGearSoundLogger", L"0", L"0", wcModulePath) != 0)
 	{
 		try
 		{
-			if (const auto f = _wfopen(L"gear_sound_logger.txt", L"w"))
+			FILE* f = nullptr;
+			if (_wfopen_s(&f, L"gear_sound_logger.txt", L"w") == 0 && f)
 			{
 				fprintf(f, "Gear Sound Logger for Issue #227\n");
 				fprintf(f, "Please provide the following offsets to the developer:\n\n");
