@@ -3624,6 +3624,18 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 	}
 }
 
+
+// Fix for jump canceling fall animation
+static void (__thiscall *orgCPed_SetJump_VC)(void* ped);
+static void __fastcall CPed_SetJump_Hook_VC(void* ped, void*)
+{
+	uint32_t state = *(uint32_t*)((uintptr_t)ped + 0x244);
+	if (state == 42 || state == 43) // PED_FALL or PED_GETUP
+		return;
+
+	orgCPed_SetJump_VC(ped);
+}
+
 void Patch_VC_Common()
 {
 	using namespace Memory;
@@ -3635,6 +3647,17 @@ void Patch_VC_Common()
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
 
 	const HMODULE hGameModule = GetModuleHandle(nullptr);
+
+
+	{
+		// CPlayerPed::ProcessControl SetJump call (Issue #225)
+		try {
+			hook::pattern("E8 ? ? ? ? 8B 4E 34 8D 56 34 89 0D ? ? ? ?").for_each_result([&](hook::pattern_match match) {
+				if (!orgCPed_SetJump_VC) ReadCall(match.get<void>(), orgCPed_SetJump_VC);
+				InjectHook(match.get<void>(), CPed_SetJump_Hook_VC, HookType::Call);
+			});
+		} catch (const hook::txn_exception&) {}
+	}
 
 	// Fix text shadows not scaling to resolution
 	if (ShadowScalingFixes::HasGameBindings()) try

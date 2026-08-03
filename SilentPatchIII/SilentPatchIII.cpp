@@ -3544,6 +3544,18 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 	Common::Patches::DDraw_III_Steam( width, height, aNoDesktopMode );
 }
 
+
+// Fix for jump canceling fall animation
+static void (__thiscall *orgCPed_SetJump_III)(void* ped);
+static void __fastcall CPed_SetJump_Hook_III(void* ped, void*)
+{
+	uint32_t state = *(uint32_t*)((uintptr_t)ped + 0x224);
+	if (state == 36 || state == 37) // PED_FALL or PED_GETUP
+		return;
+
+	orgCPed_SetJump_III(ped);
+}
+
 void Patch_III_Common()
 {
 	using namespace Memory;
@@ -3555,6 +3567,16 @@ void Patch_III_Common()
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
 
 	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
+
+	{
+		// CPlayerPed::ProcessControl SetJump call (Issue #225)
+		try {
+			hook::pattern("E8 ? ? ? ? 83 7C 24 18 00 74 6B").for_each_result([&](hook::pattern_match match) {
+				if (!orgCPed_SetJump_III) ReadCall(match.get<void>(), orgCPed_SetJump_III);
+				InjectHook(match.get<void>(), CPed_SetJump_Hook_III, HookType::Call);
+			});
+		} catch (const hook::txn_exception&) {}
+	}
 
 	// Scale the radar trace (blip) to resolution
 	if (RadarTraceScaling::HasGameBindings()) try
