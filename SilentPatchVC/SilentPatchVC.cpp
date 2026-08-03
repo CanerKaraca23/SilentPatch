@@ -3673,11 +3673,11 @@ void Patch_VC_Common()
 		using namespace BoatColorFix;
 
 		// Find SetAtomicRendererCB_Boat from its usage in CVehicleModelInfo::SetAtomicRenderCallbacks
-		// 80 F8 01 75 ? 5? 68 is cmp al, 1
-		auto push_boat_cb = hook::txn::pattern("80 F8 01 75 ? 5? 68").get_one();
+		// 3C 01 75 ? 5? 68 is cmp al, 1
+		auto push_boat_cb = hook::txn::pattern("3C 01 75 ? 5? 68").get_one();
 
-		void** set_atomic_renderer_cb_boat = push_boat_cb.get<void**>(6 + 1);
-		orgSetAtomicRendererCB_Boat = reinterpret_cast<void* (*)(void*, void*)>(*set_atomic_renderer_cb_boat);
+		void* set_atomic_renderer_cb_boat = push_boat_cb.get<void>(5 + 1);
+		orgSetAtomicRendererCB_Boat = reinterpret_cast<void* (*)(void*, void*)>(*(void**)set_atomic_renderer_cb_boat);
 		Memory::VP::Patch(set_atomic_renderer_cb_boat, SetAtomicRendererCB_Boat_AddMaterialColorModulation);
 	}
 	TXN_CATCH();
