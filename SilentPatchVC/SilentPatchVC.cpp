@@ -23,6 +23,7 @@
 
 #include "Utils/ModuleList.hpp"
 #include "Utils/Patterns.h"
+#include <stdio.h>
 #include "Utils/ScopedUnprotect.hpp"
 #include "Utils/HookEach.hpp"
 #include "DelimStringReader.hpp"
@@ -1857,6 +1858,36 @@ namespace SelectableBackfaceCulling
 		}
 
 		orgEntityRender(obj);
+
+		static bool bLogged = false;
+		if (!bLogged && obj->m_nType == 3) // ped
+		{
+			bLogged = true;
+			// CEntity::Render is index 13 in the vtable.
+			// The vtable pointer is at offset 0 (standard C++ virtual class).
+			void** vtable = *reinterpret_cast<void***>(obj);
+			if (vtable)
+			{
+				void* pPedRender = vtable[13];
+				if (pPedRender)
+				{
+					FILE* f = nullptr;
+					if (fopen_s(&f, "SP_PedRender_Dump.log", "wb") == 0 && f)
+					{
+						fprintf(f, "CPed::Render at %p\n\n", pPedRender);
+						// Dump 0x800 bytes
+						unsigned char* bytes = reinterpret_cast<unsigned char*>(pPedRender);
+						for (int i = 0; i < 0x800; i++)
+						{
+							fprintf(f, "%02X ", bytes[i]);
+							if ((i + 1) % 16 == 0)
+								fprintf(f, "\n");
+						}
+						fclose(f);
+					}
+				}
+			}
+		}
 	}
 }
 
