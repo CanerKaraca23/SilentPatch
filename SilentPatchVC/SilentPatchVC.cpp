@@ -2794,11 +2794,10 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 	}
 	TXN_CATCH();
 
-
 	// Bug #227: The sound of acceleration for all vehicles and bikes (except Faggio) are paused and goes to next gear sounds immediately before it's sound effect reaches to the end of it (except for helicopters and boats)
-	// As agreed with the user, we implement a diagnostic logger to precisely identify the correct assembly patterns
-	// surrounding `gearSoundLength -= 1000` inside `cAudioManager::ProcessPlayersVehicleEngine`.
-	// The user will use this logger to dump the memory bytes and report them back for a highly specific patch in the next iteration.
+	// As requested by the user, we create a logger to dump surrounding bytes whenever 1000 (0x3E8) is subtracted
+	// before a call and another subtraction, so the correct address can be safely patched later without hallucinating patterns.
+	// Guarded by an INI check so it does not run in production for end users.
 	if (GetPrivateProfileIntW(L"EnableGearSoundLogger", 0, L"SilentPatch", wcModulePath) != 0)
 	{
 		try
@@ -2814,11 +2813,11 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 						void* addr = match.get<void>(0);
 						fprintf(f, "[%s] Found at: %p\n", desc, addr);
 						uint8_t* pAddr = static_cast<uint8_t*>(addr);
-						fprintf(f, "Bytes (64 bytes total): ");
-						for (int i = 0; i < 64; i++) {
+						fprintf(f, "Bytes: ");
+						for (int i = 0; i < 32; i++) {
 							fprintf(f, "%02X ", pAddr[i]);
 						}
-						fprintf(f, "\n\n");
+						fprintf(f, "\n");
 					});
 				};
 
