@@ -1266,6 +1266,14 @@ static int (*RsEventHandler)(int, void*);
 int NewFrameRender(int nEvent, void* pParam)
 {
 	QueryPerformanceCounter(&FrameTime);
+
+	if (ScriptSpace && !patchedOffsets.empty()) {
+		if (ScriptSpace[patchedOffsets[0]] == 0x08) {
+			// Savegame was loaded, overwriting our patch! Re-apply it!
+			HardwareShopsCleanupFix();
+		}
+	}
+
 	return RsEventHandler(nEvent, pParam);
 }
 
@@ -2490,17 +2498,16 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+#include <vector>
+
 static unsigned char* ScriptSpace = nullptr;
 static constexpr size_t ScriptFileSize = 260512;
-
-static hook::scan_segments MakeScriptScanSegment()
-{
-	return {{ uintptr_t(ScriptSpace), uintptr_t(ScriptSpace) + ScriptFileSize }};
-}
+static std::vector<size_t> patchedOffsets;
 
 static void HardwareShopsCleanupFix()
 {
 	if (!ScriptSpace) return;
+	patchedOffsets.clear();
 
 	// Find the end of the script to safely append our custom logic
 	size_t currentEnd = ScriptFileSize;
@@ -2509,71 +2516,90 @@ static void HardwareShopsCleanupFix()
 	}
 	currentEnd += 16; // Add some padding
 
-	// Look for 4 consecutive DELETE_OBJECT commands
-	auto segment = MakeScriptScanSegment();
-	auto pattern = hook::pattern(segment, "08 01 02 ? ? 08 01 02 ? ? 08 01 02 ? ? 08 01 02 ? ?");
+	DWORD oldProtect;
+	VirtualProtect(ScriptSpace, ScriptFileSize, PAGE_EXECUTE_READWRITE, &oldProtect);
 
-	pattern.for_each_result([&](hook::txn::pattern_match match) {
-		uint8_t* code = match.get<uint8_t>();
-		int consecutiveCount = 0;
-		std::vector<uint16_t> vars;
+	for (size_t i = 0; i < ScriptFileSize - 25; i++)
+	{
+		// 0x08 0x01 0x02 ? ? (DELETE_OBJECT var_X)
+		if (ScriptSpace[i] == 0x08 && ScriptSpace[i+1] == 0x01 && ScriptSpace[i+2] == 0x02)
+		{
+			size_t scan = i;
+			int consecutiveCount = 0;
+			std::vector<uint16_t> vars;
 
-		uint8_t* scan = code;
-		while (scan + 5 <= ScriptSpace + ScriptFileSize && *scan == 0x08 && *(scan+1) == 0x01 && *(scan+2) == 0x02) {
-			vars.push_back(*reinterpret_cast<uint16_t*>(scan + 3));
-			scan += 5;
-			consecutiveCount++;
-		}
-
-		if (consecutiveCount >= 4 && currentEnd + vars.size() * 19 + 7 < ScriptFileSize) {
-			size_t customBlockStart = currentEnd;
-
-			// Write the GOTO instruction at the original location
-			// GOTO is opcode 0002: 02 00 01 <int32_t offset>
-			code[0] = 0x02; code[1] = 0x00; code[2] = 0x01;
-			*reinterpret_cast<int32_t*>(code + 3) = static_cast<int32_t>(customBlockStart);
-
-			// Assemble the custom block at currentEnd
-			for (uint16_t varOffset : vars) {
-				// IS_INT_VAR_GREATER_THAN_NUMBER var, 0 (opcode 0018)
-				// 18 00 02 <varOffset> 04 00
-				ScriptSpace[currentEnd++] = 0x18;
-				ScriptSpace[currentEnd++] = 0x00;
-				ScriptSpace[currentEnd++] = 0x02;
-				*reinterpret_cast<uint16_t*>(&ScriptSpace[currentEnd]) = varOffset;
-				currentEnd += 2;
-				ScriptSpace[currentEnd++] = 0x04;
-				ScriptSpace[currentEnd++] = 0x00;
-
-				// JUMP_IF_FALSE (opcode 004D)
-				// 4D 00 01 <int32_t target>
-				ScriptSpace[currentEnd++] = 0x4D;
-				ScriptSpace[currentEnd++] = 0x00;
-				ScriptSpace[currentEnd++] = 0x01;
-				int32_t targetOffsetPos = currentEnd;
-				currentEnd += 4;
-
-				// DELETE_OBJECT var (opcode 0108)
-				// 08 01 02 <varOffset>
-				ScriptSpace[currentEnd++] = 0x08;
-				ScriptSpace[currentEnd++] = 0x01;
-				ScriptSpace[currentEnd++] = 0x02;
-				*reinterpret_cast<uint16_t*>(&ScriptSpace[currentEnd]) = varOffset;
-				currentEnd += 2;
-
-				// Patch the JUMP target to point here (after DELETE_OBJECT)
-				*reinterpret_cast<int32_t*>(&ScriptSpace[targetOffsetPos]) = static_cast<int32_t>(currentEnd);
+			while (scan + 5 <= ScriptFileSize && ScriptSpace[scan] == 0x08 && ScriptSpace[scan+1] == 0x01 && ScriptSpace[scan+2] == 0x02) {
+				vars.push_back(*reinterpret_cast<uint16_t*>(&ScriptSpace[scan + 3]));
+				scan += 5;
+				consecutiveCount++;
 			}
 
-			// GOTO original script (after the consecutive DELETE_OBJECTs)
-			// 02 00 01 <int32_t target>
-			ScriptSpace[currentEnd++] = 0x02;
-			ScriptSpace[currentEnd++] = 0x00;
-			ScriptSpace[currentEnd++] = 0x01;
-			*reinterpret_cast<int32_t*>(&ScriptSpace[currentEnd]) = static_cast<int32_t>((code + consecutiveCount * 5) - ScriptSpace);
-			currentEnd += 4;
+			if (consecutiveCount >= 4 && currentEnd + vars.size() * 19 + 7 < ScriptFileSize) {
+				patchedOffsets.push_back(i);
+
+				size_t customBlockStart = currentEnd;
+
+				// Write the GOTO instruction at the original location
+				// GOTO is opcode 0002: 02 00 01 <int32_t offset>
+				ScriptSpace[i] = 0x02; ScriptSpace[i+1] = 0x00; ScriptSpace[i+2] = 0x01;
+				int32_t jumpOffset = static_cast<int32_t>(customBlockStart);
+				memcpy(&ScriptSpace[i + 3], &jumpOffset, sizeof(jumpOffset));
+
+				// Fill remaining bytes with NOPs, ensuring an even number of zeros
+				int remainingBytes = (consecutiveCount * 5) - 7;
+				int nopsToFill = remainingBytes & ~1; // Round down to even number
+				for (int k = 0; k < nopsToFill; k++) {
+					ScriptSpace[i + 7 + k] = 0x00;
+				}
+
+				// Assemble the custom block at currentEnd
+				for (uint16_t varOffset : vars) {
+					// IS_INT_VAR_GREATER_THAN_NUMBER var, 0 (opcode 0018)
+					// 18 00 02 <varOffset> 04 00
+					ScriptSpace[currentEnd++] = 0x18;
+					ScriptSpace[currentEnd++] = 0x00;
+					ScriptSpace[currentEnd++] = 0x02;
+					memcpy(&ScriptSpace[currentEnd], &varOffset, sizeof(varOffset));
+					currentEnd += 2;
+					ScriptSpace[currentEnd++] = 0x04;
+					ScriptSpace[currentEnd++] = 0x00;
+
+					// JUMP_IF_FALSE (opcode 004D)
+					// 4D 00 01 <int32_t target>
+					ScriptSpace[currentEnd++] = 0x4D;
+					ScriptSpace[currentEnd++] = 0x00;
+					ScriptSpace[currentEnd++] = 0x01;
+					int32_t targetOffsetPos = currentEnd;
+					currentEnd += 4;
+
+					// DELETE_OBJECT var (opcode 0108)
+					// 08 01 02 <varOffset>
+					ScriptSpace[currentEnd++] = 0x08;
+					ScriptSpace[currentEnd++] = 0x01;
+					ScriptSpace[currentEnd++] = 0x02;
+					memcpy(&ScriptSpace[currentEnd], &varOffset, sizeof(varOffset));
+					currentEnd += 2;
+
+					// Patch the JUMP target to point here (after DELETE_OBJECT)
+					int32_t currentEnd32 = static_cast<int32_t>(currentEnd);
+					memcpy(&ScriptSpace[targetOffsetPos], &currentEnd32, sizeof(currentEnd32));
+				}
+
+				// GOTO original script (after the consecutive DELETE_OBJECTs)
+				// 02 00 01 <int32_t target>
+				ScriptSpace[currentEnd++] = 0x02;
+				ScriptSpace[currentEnd++] = 0x00;
+				ScriptSpace[currentEnd++] = 0x01;
+				int32_t returnOffset = static_cast<int32_t>(i + consecutiveCount * 5);
+				memcpy(&ScriptSpace[currentEnd], &returnOffset, sizeof(returnOffset));
+				currentEnd += 4;
+
+				i = scan - 1; // Skip the scanned block
+			}
 		}
-	});
+	}
+
+	VirtualProtect(ScriptSpace, ScriptFileSize, oldProtect, &oldProtect);
 }
 
 static void (*orgTheScriptsLoad)();
@@ -2583,17 +2609,31 @@ static void TheScriptsLoad_HardwareShopsCleanupFix()
 	HardwareShopsCleanupFix();
 }
 
+
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
 	using namespace hook::txn;
 
-	unsigned char* pScriptSpace = AddressByVersion<unsigned char*>(0x821280, 0x821288, 0x820288);
-	if (pScriptSpace)
+	try
 	{
-		ScriptSpace = pScriptSpace;
-		auto the_scripts_load = get_pattern("E8 ? ? ? ? 59 E8 ? ? ? ? E8 ? ? ? ? 31 DB", 6);
-		orgTheScriptsLoad = (void (*)())InterceptCall(the_scripts_load, TheScriptsLoad_HardwareShopsCleanupFix);
+		auto pat1 = pattern("68 A0 F9 03 00 6A ? 68 ? ? ? ?");
+		if (pat1.size() > 0) {
+			ScriptSpace = *pat1.get(0).get<unsigned char**>(8);
+		} else {
+			ScriptSpace = AddressByVersion<unsigned char*>(0x821280, 0x821288, 0x820288);
+		}
+	}
+	TXN_CATCH();
+
+	if (ScriptSpace)
+	{
+		try
+		{
+			auto the_scripts_load = get_pattern("E8 ? ? ? ? 59 E8 ? ? ? ? E8 ? ? ? ? 31 DB", 6);
+			orgTheScriptsLoad = (void (*)())InterceptCall(the_scripts_load, TheScriptsLoad_HardwareShopsCleanupFix);
+		}
+		TXN_CATCH();
 	}
 
 	const ModuleList moduleList;
