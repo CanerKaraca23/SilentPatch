@@ -3385,51 +3385,6 @@ void InjectDelayedPatches()
 
 	InjectDelayedPatches_VC_Common( hasDebugMenu, wcModulePath );
 
-	try
-	{
-		wchar_t wcLogPath[MAX_PATH];
-		wcscpy_s(wcLogPath, wcModulePath);
-		PathRenameExtensionW(wcLogPath, L"_logger.txt");
-		FILE* hLog = _wfopen(wcLogPath, L"w");
-		if (hLog)
-		{
-			// Search for m_nAmmoTotal check pattern in CPickup::Update
-			// The original logic checks if m_nAmmoTotal == 0.
-			// In VC, CPed + 0x3A8 is the weapon array, and m_nAmmoTotal is at offset 0x8.
-			// So it's something like 83 7C ?? ?? 00 or 83 BC ?? ?? ?? 00 00 00
-			fwprintf(hLog, L"Searching for pattern...\n");
-
-			// We search for a known call in CPickups::Update (like CWeaponInfo::GetWeaponInfo)
-			// Actually, let's search for the pattern checking ammo and slots:
-			// In VC: slot is either 3, 4, 5 (shotgun, smg, rifle)
-			// It probably does a CMP [REG + REG * 8 + ...], 0
-			// Let's search a wide range around CPickup::Update 0x440030
-
-			uint8_t* pStart = (uint8_t*)0x440030;
-			uint8_t* pEnd = pStart + 0x1000;
-			for (uint8_t* p = pStart; p < pEnd; ++p)
-			{
-				if (*p == 0x83 && *(p+2) == 0x00) // maybe cmp dword ptr [reg+disp8], 0
-				{
-					fwprintf(hLog, L"Found 83 ? 00 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
-				}
-				if (*p == 0x83 && *(p+6) == 0x00) // maybe cmp dword ptr [reg+disp32], 0
-				{
-					fwprintf(hLog, L"Found 83 ? ? ? ? ? 00 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
-				}
-				if (*p == 0x39) // cmp r/m32, r32
-				{
-					fwprintf(hLog, L"Found 39 at 0x%X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n", (uintptr_t)p, p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9]);
-				}
-			}
-			fwprintf(hLog, L"Done searching CPickup::Update.\n");
-			fclose(hLog);
-		}
-	}
-	catch (...)
-	{
-	}
-
 	Common::Patches::III_VC_DelayedCommon( hasDebugMenu, wcModulePath );
 	Memory::FlushCodeChanges();
 }
@@ -3840,6 +3795,41 @@ void Patch_VC_Common()
 	}
 	TXN_CATCH();
 
+
+	// "Press L1 to replace weapon" prompt appearing when weapon was cleared by script
+	try
+	{
+		auto patternAmmoCheck = pattern("83 BC ? 14 04 00 00 00 75").count_hint(1);
+		if (patternAmmoCheck.size() > 0) {
+			uint8_t* pAmmoCheck = (uint8_t*)patternAmmoCheck.get(0).get<void>(0);
+			uint8_t* pJne = pAmmoCheck + 8;
+			uintptr_t else_block = (uintptr_t)pJne + 2 + pJne[1];
+
+			uint8_t* pTrueBlock = nullptr;
+			for (uint8_t* p = pJne + 2; p < (uint8_t*)else_block - 1; ++p) {
+				if (*p >= 0x70 && *p <= 0x7F) {
+					uintptr_t target = (uintptr_t)p + 2 + (int8_t)p[1];
+					if (target == else_block) {
+						pTrueBlock = p + 2;
+					}
+				} else if (*p == 0x0F && p[1] >= 0x80 && p[1] <= 0x8F) {
+					uintptr_t target = (uintptr_t)p + 6 + *(int32_t*)(p + 2);
+					if (target == else_block) {
+						pTrueBlock = p + 6;
+					}
+				}
+			}
+
+			if (pTrueBlock) {
+				size_t jump_dist = pTrueBlock - (pJne + 4);
+				if (jump_dist <= 127) {
+					Patch<uint8_t>(pJne + 2, 0xEB);
+					Patch<int8_t>(pJne + 3, static_cast<int8_t>(jump_dist));
+				}
+			}
+		}
+	}
+	TXN_CATCH();
 
 	// Fixed ammo from SCM
 	try
