@@ -10303,6 +10303,18 @@ void Patch_SA_NewBinaries_Common(HINSTANCE hInstance)
 	// Delay destroying of cigarettes/bottles held by NPCs so it does not potentially corrupt the moving list
 	try
 	{
+		FILE* f = fopen("CRope_Remove_Dump.txt", "w");
+		if (f)
+		{
+			uint8_t* ptr = (uint8_t*)0x556780;
+			fprintf(f, "CRope::Remove bytes:\n");
+			for (int i = 0; i < 128; i++) {
+				fprintf(f, "%02X ", ptr[i]);
+			}
+			fprintf(f, "\n");
+			fclose(f);
+		}
+
 		// CWorld::Process processes all entries in the moving list, calling ProcessControl on them.
 		// CPlayerPed::ProcessControl handles the gang recruitment which in turn can result in homies dropping cigarettes or bottles.
 		// When this happens, they are destroyed -immediately-. If those props are in the moving list right after the PlayerPed,
