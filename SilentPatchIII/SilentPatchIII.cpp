@@ -3568,14 +3568,21 @@ void Patch_III_Common()
 
 	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
 
+
 	{
-		// CPlayerPed::ProcessControl SetJump call (Issue #225)
-		try {
-			hook::pattern("E8 ? ? ? ? 83 7C 24 18 00 74 6B").for_each_result([&](hook::pattern_match match) {
-				if (!orgCPed_SetJump_III) ReadCall(match.get<void>(), orgCPed_SetJump_III);
-				InjectHook(match.get<void>(), CPed_SetJump_Hook_III, HookType::Call);
-			});
-		} catch (const hook::txn_exception&) {}
+		// CPlayerPed::ProcessControl SetJump calls (Issue #225)
+		std::array<void*, 5> setJumpCalls = {
+			AddressByVersion<void*>(0x4C98F4, 0x4C9994, 0x4C9924),
+			AddressByVersion<void*>(0x4CA708, 0x4CA7A8, 0x4CA738),
+			AddressByVersion<void*>(0x4F17B9, 0x4F1869, 0x4F17F9),
+			AddressByVersion<void*>(0x4F1962, 0x4F1A12, 0x4F19A2),
+			AddressByVersion<void*>(0x4F1C87, 0x4F1D37, 0x4F1CC7)
+		};
+
+		for (void* addr : setJumpCalls) {
+			if (!orgCPed_SetJump_III) Memory::ReadCall(addr, orgCPed_SetJump_III);
+			Memory::InjectHook(addr, CPed_SetJump_Hook_III, Memory::HookType::Call);
+		}
 	}
 
 	// Scale the radar trace (blip) to resolution

@@ -3625,15 +3625,38 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 }
 
 
-// Fix for jump canceling fall animation
-static void (__thiscall *orgCPed_SetJump_VC)(void* ped);
-static void __fastcall CPed_SetJump_Hook_VC(void* ped, void*)
-{
-	uint32_t state = *(uint32_t*)((uintptr_t)ped + 0x244);
-	if (state == 42 || state == 43) // PED_FALL or PED_GETUP
-		return;
 
-	orgCPed_SetJump_VC(ped);
+// Fix for jump canceling fall animation
+static void* orgCPed_SetJump_VC;
+static void __declspec(naked) CPed_SetJump_Hook_VC()
+{
+	__asm {
+		push eax
+		mov eax, dword ptr [ecx+0x244] // m_ePedState
+		cmp eax, 42 // PED_FALL
+		je exit_hook
+		cmp eax, 43 // PED_GETUP
+		je exit_hook
+
+		pop eax
+
+		// Original instructions of CPed::SetJump (GTA VC 1.0/1.1/Steam)
+		// 51       push ecx
+		// 53       push ebx
+		// 56       push esi
+		// 8B F1    mov esi, ecx
+		push ecx
+		push ebx
+		push esi
+		mov esi, ecx
+
+		// Jump back to original function + 5 bytes
+		jmp orgCPed_SetJump_VC
+
+	exit_hook:
+		pop eax
+		ret
+	}
 }
 
 void Patch_VC_Common()
@@ -3648,15 +3671,13 @@ void Patch_VC_Common()
 
 	const HMODULE hGameModule = GetModuleHandle(nullptr);
 
-
 	{
-		// CPlayerPed::ProcessControl SetJump call (Issue #225)
-		try {
-			hook::pattern("E8 ? ? ? ? 8B 4E 34 8D 56 34 89 0D ? ? ? ?").for_each_result([&](hook::pattern_match match) {
-				if (!orgCPed_SetJump_VC) ReadCall(match.get<void>(), orgCPed_SetJump_VC);
-				InjectHook(match.get<void>(), CPed_SetJump_Hook_VC, HookType::Call);
-			});
-		} catch (const hook::txn_exception&) {}
+		// CPed::SetJump (Issue #225)
+		// We hook the prologue because the first 4 instructions (push ecx; push ebx; push esi; mov esi, ecx)
+		// are exactly 5 bytes long, making it perfectly safe for a 5-byte JMP hook.
+		auto setJumpPattern = hook::pattern("51 53 56 8B F1 E8 ? ? ? ? 8B 4E 34").count(1).get_first<void>();
+		orgCPed_SetJump_VC = (void*)((uintptr_t)setJumpPattern + 5);
+		InjectHook(setJumpPattern, CPed_SetJump_Hook_VC, HookType::Jump);
 	}
 
 	// Fix text shadows not scaling to resolution
