@@ -2502,6 +2502,7 @@ namespace PredatorWantedLevelFix
 	static bool g_bPredatorFiring = false;
 
 	static void* orgFireOneInstantHitRound;
+	static void* fireMachineGuns_Addr = nullptr;
 	static void __cdecl FireOneInstantHitRound_Hook(CVector* source, CVector* target, int32_t damage)
 	{
 		g_bPredatorFiring = true;
@@ -2510,7 +2511,7 @@ namespace PredatorWantedLevelFix
 	}
 
 	static void* InflictDamage_Veh_JumpBack;
-	__declspec(naked) static void __fastcall InflictDamage_Veh_Original(void* veh, void*, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
+	__declspec(naked) static void __fastcall InflictDamage_Veh_Original(void*, void*, CEntity*, uint32_t, float, CVector)
 	{
 		_asm
 		{
@@ -2531,7 +2532,7 @@ namespace PredatorWantedLevelFix
 	}
 
 	static void* InflictDamage_Ped_JumpBack;
-	__declspec(naked) static void __fastcall InflictDamage_Ped_Original(void* ped, void*, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	__declspec(naked) static void __fastcall InflictDamage_Ped_Original(void*, void*, CEntity*, uint32_t, float, uint32_t, uint8_t)
 	{
 		_asm
 		{
@@ -2592,17 +2593,18 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 		auto fireMachineGuns = pattern("83 EC 28 53 55 56 57 8B F9 8B 87 ? ? ? ? 8B 88").get_first();
 		if (fireMachineGuns)
 		{
+			PredatorWantedLevelFix::fireMachineGuns_Addr = fireMachineGuns;
 			// Logger
 			if (bHasDebugMenu)
 			{
 				static bool bLogPredator = false;
-				DebugMenuAddVar("SilentPatch", "Log Predator Assembly", &bLogPredator, [fireMachineGuns]() {
+				DebugMenuAddVar("SilentPatch", "Log Predator Assembly", &bLogPredator, []() {
 					FILE* f = nullptr;
 					fopen_s(&f, "SilentPatch_PredatorPatterns_VC.log", "w");
 					if (f)
 					{
-						fprintf(f, "CVehicle::FireFixedMachineGuns found at %p\n", fireMachineGuns);
-						uint8_t* funcStart = (uint8_t*)fireMachineGuns;
+						fprintf(f, "CVehicle::FireFixedMachineGuns found at %p\n", PredatorWantedLevelFix::fireMachineGuns_Addr);
+						uint8_t* funcStart = (uint8_t*)PredatorWantedLevelFix::fireMachineGuns_Addr;
 						for (int i = 0; i < 500; i++)
 						{
 							fprintf(f, "%02X ", funcStart[i]);
