@@ -2500,8 +2500,8 @@ namespace PredatorWantedLevelFix
 	}
 
 	static bool g_bPredatorFiring = false;
-	static void* orgFireOneInstantHitRound;
 
+	static void* orgFireOneInstantHitRound;
 	static void __cdecl FireOneInstantHitRound_Hook(CVector* source, CVector* target, int32_t damage)
 	{
 		g_bPredatorFiring = true;
@@ -2509,27 +2509,48 @@ namespace PredatorWantedLevelFix
 		g_bPredatorFiring = false;
 	}
 
-	static void (__thiscall* orgInflictDamage_Veh)(void* veh, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos);
-	static void __fastcall InflictDamage_Veh_Hook(void* veh, void*, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
+	static void* InflictDamage_Veh_JumpBack;
+	__declspec(naked) static void __fastcall InflictDamage_Veh_Original(void* veh, void*, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
 	{
-		if (g_bPredatorFiring && damagedBy == nullptr)
+		_asm
 		{
-			damagedBy = FindPlayerPed.Call();
+			push    ebp
+			mov     ebp, esp
+			sub     esp, 18h
+			jmp     [InflictDamage_Veh_JumpBack]
 		}
-		orgInflictDamage_Veh(veh, damagedBy, weaponType, damage, pos);
 	}
 
-	static void (__thiscall* orgInflictDamage_Ped)(void* ped, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction);
-	static void __fastcall InflictDamage_Ped_Hook(void* ped, void*, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	static void __fastcall InflictDamage_Veh_Hook(void* veh, void* edx, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
 	{
 		if (g_bPredatorFiring && damagedBy == nullptr)
 		{
 			damagedBy = FindPlayerPed.Call();
 		}
-		orgInflictDamage_Ped(ped, damagedBy, weaponType, damage, pedPiece, direction);
+		InflictDamage_Veh_Original(veh, edx, damagedBy, weaponType, damage, pos);
+	}
+
+	static void* InflictDamage_Ped_JumpBack;
+	__declspec(naked) static void __fastcall InflictDamage_Ped_Original(void* ped, void*, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	{
+		_asm
+		{
+			push    ebp
+			mov     ebp, esp
+			and     esp, 0FFFFFFF0h
+			jmp     [InflictDamage_Ped_JumpBack]
+		}
+	}
+
+	static void __fastcall InflictDamage_Ped_Hook(void* ped, void* edx, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	{
+		if (g_bPredatorFiring && damagedBy == nullptr)
+		{
+			damagedBy = FindPlayerPed.Call();
+		}
+		InflictDamage_Ped_Original(ped, edx, damagedBy, weaponType, damage, pedPiece, direction);
 	}
 }
-
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
@@ -2576,7 +2597,8 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 			{
 				static bool bLogPredator = false;
 				DebugMenuAddVar("SilentPatch", "Log Predator Assembly", &bLogPredator, [fireMachineGuns]() {
-					FILE* f = fopen("SilentPatch_PredatorPatterns_VC.log", "w");
+					FILE* f = nullptr;
+					fopen_s(&f, "SilentPatch_PredatorPatterns_VC.log", "w");
 					if (f)
 					{
 						fprintf(f, "CVehicle::FireFixedMachineGuns found at %p\n", fireMachineGuns);
@@ -2592,18 +2614,31 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 				});
 			}
 
-			// Find calls to FireOneInstantHitRound
-			auto calls = pattern("E8 ? ? ? ? 83 C4 0C").count(2);
-			if (calls.size() == 2)
+			uint8_t* pCode = (uint8_t*)fireMachineGuns;
+			int callsFound = 0;
+			for (int i = 0; i < 0x200 && callsFound < 2; i++)
 			{
-				InterceptCall(calls.get(0).get<void>(0), orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
-				InterceptCall(calls.get(1).get<void>(0), orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
+				if (pCode[i] == 0xE8 && pCode[i+5] == 0x83 && pCode[i+6] == 0xC4 && pCode[i+7] == 0x0C)
+				{
+					InterceptCall(&pCode[i], orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
+					callsFound++;
+				}
+			}
 
-				auto inflictDamageVeh = pattern("55 8B EC 83 EC 18 53 56 57 8B F9 8B 45 08").get_first();
-				if (inflictDamageVeh) InterceptCall(inflictDamageVeh, orgInflictDamage_Veh, InflictDamage_Veh_Hook);
+			auto inflictDamageVeh = pattern("55 8B EC 83 EC 18 53 56 57 8B F9 8B 45 08").get_first();
+			if (inflictDamageVeh)
+			{
+				InflictDamage_Veh_JumpBack = (void*)((uintptr_t)inflictDamageVeh + 6);
+				Nop(inflictDamageVeh, 6);
+				InjectHook(inflictDamageVeh, InflictDamage_Veh_Hook, HookType::Jump);
+			}
 
-				auto inflictDamagePed = pattern("55 8B EC 83 E4 F0 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 8B 85").get_first();
-				if (inflictDamagePed) InterceptCall(inflictDamagePed, orgInflictDamage_Ped, InflictDamage_Ped_Hook);
+			auto inflictDamagePed = pattern("55 8B EC 83 E4 F0 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 8B 85").get_first();
+			if (inflictDamagePed)
+			{
+				InflictDamage_Ped_JumpBack = (void*)((uintptr_t)inflictDamagePed + 6);
+				Nop(inflictDamagePed, 6);
+				InjectHook(inflictDamagePed, InflictDamage_Ped_Hook, HookType::Jump);
 			}
 		}
 	}
