@@ -3545,16 +3545,22 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 }
 
 
-// Fix for jump canceling fall animation
-static void (__thiscall *orgCPed_SetJump_III)(void* ped);
-static void __fastcall CPed_SetJump_Hook_III(void* ped, void*)
-{
-	uint32_t state = *(uint32_t*)((uintptr_t)ped + 0x224);
-	if (state == 36 || state == 37) // PED_FALL or PED_GETUP
-		return;
+	// Disable jump mid-air (Issue #225)
+	static bool __fastcall JumpJustDown_CheckState(void* pad, int)
+	{
+		if ( CPlayerPed* playerPed = FindPlayerPed() )
+		{
+			uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x224);
+			if ( state == 36 || state == 37 ) // PED_FALL or PED_GETUP
+				return false;
+		}
 
-	orgCPed_SetJump_III(ped);
-}
+		// Re-implement CPad::JumpJustDown
+		// NewState is at 0x0, OldState is at 0x30. ButtonSquare is at 0x1C.
+		int16_t newJump = *(int16_t*)((uintptr_t)pad + 0x1C);
+		int16_t oldJump = *(int16_t*)((uintptr_t)pad + 0x30 + 0x1C);
+		return newJump && !oldJump;
+	}
 
 void Patch_III_Common()
 {
@@ -3566,24 +3572,14 @@ void Patch_III_Common()
 
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
 
-	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
 
-
+	// Jump cancels falling/getting up fix (Issue #225)
 	{
-		// CPlayerPed::ProcessControl SetJump calls (Issue #225)
-		std::array<void*, 5> setJumpCalls = {
-			AddressByVersion<void*>(0x4C98F4, 0x4C9994, 0x4C9924),
-			AddressByVersion<void*>(0x4CA708, 0x4CA7A8, 0x4CA738),
-			AddressByVersion<void*>(0x4F17B9, 0x4F1869, 0x4F17F9),
-			AddressByVersion<void*>(0x4F1962, 0x4F1A12, 0x4F19A2),
-			AddressByVersion<void*>(0x4F1C87, 0x4F1D37, 0x4F1CC7)
-		};
-
-		for (void* addr : setJumpCalls) {
-			if (!orgCPed_SetJump_III) Memory::ReadCall(addr, orgCPed_SetJump_III);
-			Memory::InjectHook(addr, CPed_SetJump_Hook_III, Memory::HookType::Call);
-		}
+		void* jumpDown = AddressByVersion<void*>(0x493A40, 0x493B10, 0x493AA0);
+		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
 	}
+
+	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
 
 	// Scale the radar trace (blip) to resolution
 	if (RadarTraceScaling::HasGameBindings()) try

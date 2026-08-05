@@ -3625,44 +3625,34 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 }
 
 
+	// Disable jump mid-air (Issue #225)
+	static bool __fastcall JumpJustDown_CheckState(void* pad, int)
+	{
+		if ( CPlayerPed* playerPed = FindPlayerPed() )
+		{
+			uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x244);
+			if ( state == 42 || state == 43 ) // PED_FALL or PED_GETUP
+				return false;
+		}
 
-// Fix for jump canceling fall animation
-static void* orgCPed_SetJump_VC;
-static void __declspec(naked) CPed_SetJump_Hook_VC()
-{
-	__asm {
-		push eax
-		mov eax, dword ptr [ecx+0x244] // m_ePedState
-		cmp eax, 42 // PED_FALL
-		je exit_hook
-		cmp eax, 43 // PED_GETUP
-		je exit_hook
-
-		pop eax
-
-		// Original instructions of CPed::SetJump (GTA VC 1.0/1.1/Steam)
-		// 51       push ecx
-		// 53       push ebx
-		// 56       push esi
-		// 8B F1    mov esi, ecx
-		push ecx
-		push ebx
-		push esi
-		mov esi, ecx
-
-		// Jump back to original function + 5 bytes
-		jmp orgCPed_SetJump_VC
-
-	exit_hook:
-		pop eax
-		ret
+		// Re-implement CPad::JumpJustDown
+		// NewState is at 0x0, OldState is at 0x30. ButtonSquare is at 0x1C.
+		int16_t newJump = *(int16_t*)((uintptr_t)pad + 0x1C);
+		int16_t oldJump = *(int16_t*)((uintptr_t)pad + 0x30 + 0x1C);
+		return newJump && !oldJump;
 	}
-}
 
 void Patch_VC_Common()
 {
 	using namespace Memory;
 	using namespace hook::txn;
+
+
+	// Jump cancels falling/getting up fix (Issue #225)
+	{
+		void* jumpDown = AddressByVersion<void*>(0x4AA400, 0x4AA420, 0x4AA2D0);
+		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
+	}
 
 	int cpuinfo[4];
 	__cpuid(cpuinfo, 1);
@@ -3670,15 +3660,6 @@ void Patch_VC_Common()
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
 
 	const HMODULE hGameModule = GetModuleHandle(nullptr);
-
-	{
-		// CPed::SetJump (Issue #225)
-		// We hook the prologue because the first 4 instructions (push ecx; push ebx; push esi; mov esi, ecx)
-		// are exactly 5 bytes long, making it perfectly safe for a 5-byte JMP hook.
-		auto setJumpPattern = hook::pattern("51 53 56 8B F1 E8 ? ? ? ? 8B 4E 34").count(1).get_first<void>();
-		orgCPed_SetJump_VC = (void*)((uintptr_t)setJumpPattern + 5);
-		InjectHook(setJumpPattern, CPed_SetJump_Hook_VC, HookType::Jump);
-	}
 
 	// Fix text shadows not scaling to resolution
 	if (ShadowScalingFixes::HasGameBindings()) try
