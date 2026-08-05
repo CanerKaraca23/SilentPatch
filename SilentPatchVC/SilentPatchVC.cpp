@@ -2490,6 +2490,68 @@ static void __fastcall ResetTimers_Dont(void* /*obj*/, void*, uint32_t /*time*/)
 }
 
 
+
+// ============= Fix Predator not triggering police wanted level and logger =============
+namespace PredatorWantedLevelFix
+{
+	static bool HasGameBindings()
+	{
+		return EnsureBindings(FindPlayerPed);
+	}
+
+	static bool g_bPredatorFiring = false;
+
+	static void* orgFireOneInstantHitRound;
+	static void* fireMachineGuns_Addr = nullptr;
+	static void __cdecl FireOneInstantHitRound_Hook(CVector* source, CVector* target, int32_t damage)
+	{
+		g_bPredatorFiring = true;
+		reinterpret_cast<void(__cdecl*)(CVector*, CVector*, int32_t)>(orgFireOneInstantHitRound)(source, target, damage);
+		g_bPredatorFiring = false;
+	}
+
+	static void* InflictDamage_Veh_JumpBack;
+	__declspec(naked) static void __fastcall InflictDamage_Veh_Original(void*, void*, CEntity*, uint32_t, float, CVector)
+	{
+		_asm
+		{
+			push    ebp
+			mov     ebp, esp
+			sub     esp, 18h
+			jmp     [InflictDamage_Veh_JumpBack]
+		}
+	}
+
+	static void __fastcall InflictDamage_Veh_Hook(void* veh, void* edx, CEntity* damagedBy, uint32_t weaponType, float damage, CVector pos)
+	{
+		if (g_bPredatorFiring && damagedBy == nullptr)
+		{
+			damagedBy = FindPlayerPed.Call();
+		}
+		InflictDamage_Veh_Original(veh, edx, damagedBy, weaponType, damage, pos);
+	}
+
+	static void* InflictDamage_Ped_JumpBack;
+	__declspec(naked) static void __fastcall InflictDamage_Ped_Original(void*, void*, CEntity*, uint32_t, float, uint32_t, uint8_t)
+	{
+		_asm
+		{
+			push    ebp
+			mov     ebp, esp
+			and     esp, 0FFFFFFF0h
+			jmp     [InflictDamage_Ped_JumpBack]
+		}
+	}
+
+	static void __fastcall InflictDamage_Ped_Hook(void* ped, void* edx, CEntity* damagedBy, uint32_t weaponType, float damage, uint32_t pedPiece, uint8_t direction)
+	{
+		if (g_bPredatorFiring && damagedBy == nullptr)
+		{
+			damagedBy = FindPlayerPed.Call();
+		}
+		InflictDamage_Ped_Original(ped, edx, damagedBy, weaponType, damage, pedPiece, direction);
+	}
+}
 void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModulePath )
 {
 	using namespace Memory;
@@ -2521,6 +2583,68 @@ void InjectDelayedPatches_VC_Common( bool bHasDebugMenu, const wchar_t* wcModule
 			DebugMenuEntrySetWrap(e, true);
 		}
 	}
+
+
+
+	if (PredatorWantedLevelFix::HasGameBindings()) try
+	{
+		using namespace PredatorWantedLevelFix;
+
+		auto fireMachineGuns = pattern("83 EC 28 53 55 56 57 8B F9 8B 87 ? ? ? ? 8B 88").get_first();
+		if (fireMachineGuns)
+		{
+			PredatorWantedLevelFix::fireMachineGuns_Addr = fireMachineGuns;
+			// Logger
+			if (bHasDebugMenu)
+			{
+				static bool bLogPredator = false;
+				DebugMenuAddVar("SilentPatch", "Log Predator Assembly", &bLogPredator, []() {
+					FILE* f = nullptr;
+					fopen_s(&f, "SilentPatch_PredatorPatterns_VC.log", "w");
+					if (f)
+					{
+						fprintf(f, "CVehicle::FireFixedMachineGuns found at %p\n", PredatorWantedLevelFix::fireMachineGuns_Addr);
+						uint8_t* funcStart = (uint8_t*)PredatorWantedLevelFix::fireMachineGuns_Addr;
+						for (int i = 0; i < 500; i++)
+						{
+							fprintf(f, "%02X ", funcStart[i]);
+							if ((i + 1) % 16 == 0) fprintf(f, "\n");
+						}
+						fprintf(f, "\n");
+						fclose(f);
+					}
+				});
+			}
+
+			uint8_t* pCode = (uint8_t*)fireMachineGuns;
+			int callsFound = 0;
+			for (int i = 0; i < 0x200 && callsFound < 2; i++)
+			{
+				if (pCode[i] == 0xE8 && pCode[i+5] == 0x83 && pCode[i+6] == 0xC4 && pCode[i+7] == 0x0C)
+				{
+					InterceptCall(&pCode[i], orgFireOneInstantHitRound, FireOneInstantHitRound_Hook);
+					callsFound++;
+				}
+			}
+
+			auto inflictDamageVeh = pattern("55 8B EC 83 EC 18 53 56 57 8B F9 8B 45 08").get_first();
+			if (inflictDamageVeh)
+			{
+				InflictDamage_Veh_JumpBack = (void*)((uintptr_t)inflictDamageVeh + 6);
+				Nop(inflictDamageVeh, 6);
+				InjectHook(inflictDamageVeh, InflictDamage_Veh_Hook, HookType::Jump);
+			}
+
+			auto inflictDamagePed = pattern("55 8B EC 83 E4 F0 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 8B 85").get_first();
+			if (inflictDamagePed)
+			{
+				InflictDamage_Ped_JumpBack = (void*)((uintptr_t)inflictDamagePed + 6);
+				Nop(inflictDamagePed, 6);
+				InjectHook(inflictDamagePed, InflictDamage_Ped_Hook, HookType::Jump);
+			}
+		}
+	}
+	TXN_CATCH();
 
 
 	// Corrected siren corona placement for emergency vehicles
