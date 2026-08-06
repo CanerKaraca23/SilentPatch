@@ -3543,16 +3543,18 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 
 	Common::Patches::DDraw_III_Steam( width, height, aNoDesktopMode );
 }
-
-
 	// Disable jump mid-air (Issue #225)
+	static void* CWorld_Players_III;
 	static bool __fastcall JumpJustDown_CheckState(void* pad, int)
 	{
-		if ( CPlayerPed* playerPed = FindPlayerPed() )
+		if ( CWorld_Players_III )
 		{
-			uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x224);
-			if ( state == 36 || state == 37 ) // PED_FALL or PED_GETUP
-				return false;
+			if ( void* playerPed = *(void**)CWorld_Players_III )
+			{
+				uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x224);
+				if ( state == 40 || state == 41 ) // PED_FALL or PED_GETUP
+					return false;
+			}
 		}
 
 		// Re-implement CPad::JumpJustDown
@@ -3561,6 +3563,7 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 		int16_t oldJump = *(int16_t*)((uintptr_t)pad + 0x30 + 0x1C);
 		return newJump && !oldJump;
 	}
+
 
 void Patch_III_Common()
 {
@@ -3575,6 +3578,7 @@ void Patch_III_Common()
 
 	// Jump cancels falling/getting up fix (Issue #225)
 	{
+		CWorld_Players_III = AddressByVersion<void*>(0x94AD28, 0x94AD28, 0x95AD28);
 		void* jumpDown = AddressByVersion<void*>(0x493A40, 0x493B10, 0x493AA0);
 		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
 	}

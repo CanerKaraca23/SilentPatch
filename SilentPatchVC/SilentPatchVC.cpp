@@ -3623,16 +3623,18 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 		orgPlayIdleAnimations(_this, padUsed);
 	}
 }
-
-
 	// Disable jump mid-air (Issue #225)
+	static void* CWorld_Players_VC;
 	static bool __fastcall JumpJustDown_CheckState(void* pad, int)
 	{
-		if ( CPlayerPed* playerPed = FindPlayerPed() )
+		if ( CWorld_Players_VC )
 		{
-			uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x244);
-			if ( state == 42 || state == 43 ) // PED_FALL or PED_GETUP
-				return false;
+			if ( void* playerPed = *(void**)CWorld_Players_VC )
+			{
+				uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x244);
+				if ( state == 42 || state == 43 ) // PED_FALL or PED_GETUP
+					return false;
+			}
 		}
 
 		// Re-implement CPad::JumpJustDown
@@ -3642,6 +3644,8 @@ void __fastcall PlayerControl1stPersonRunAround_Hook(void* _this, void* /*edx*/,
 		return newJump && !oldJump;
 	}
 
+
+
 void Patch_VC_Common()
 {
 	using namespace Memory;
@@ -3650,6 +3654,7 @@ void Patch_VC_Common()
 
 	// Jump cancels falling/getting up fix (Issue #225)
 	{
+		CWorld_Players_VC = AddressByVersion<void*>(0x97F798, 0x97F7A0, 0x97E7A0);
 		void* jumpDown = AddressByVersion<void*>(0x4AA400, 0x4AA420, 0x4AA2D0);
 		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
 	}
