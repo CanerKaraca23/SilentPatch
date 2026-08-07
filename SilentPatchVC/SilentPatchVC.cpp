@@ -1614,7 +1614,38 @@ namespace IsPlayerTargettingCharFix
 {
 	static bool* bUseMouse3rdPerson;
 	static void* TheCamera;
-	static bool (__fastcall* Using1stPersonWeaponMode)();
+
+static void __cdecl SetCarsOnFire_ShotInfoUpdate(float x, float y, float z, float radius, void* fireCreator)
+{
+	float realRadius = radius;
+
+	struct CShotInfo {
+		int m_nWeaponType;
+		float m_vecOrigin[3];
+		float m_vecTargetOffset[3];
+		float m_fRange;
+		void* m_pCreator;
+		float fFlameVar;
+		bool bInUse;
+	};
+
+	CShotInfo* aShotInfos = (CShotInfo*)0x781710;
+	for (int i = 0; i < 100; i++) {
+		if (aShotInfos[i].bInUse && aShotInfos[i].m_pCreator == fireCreator) {
+			if (aShotInfos[i].m_vecOrigin[0] == x &&
+				aShotInfos[i].m_vecOrigin[1] == y &&
+				aShotInfos[i].m_vecOrigin[2] == z) {
+				realRadius = aShotInfos[i].m_fRange;
+				break;
+			}
+		}
+	}
+
+	auto orgSetCarsOnFire = (void(__cdecl*)(float, float, float, float, void*))0x4D4C30;
+	orgSetCarsOnFire(x, y, z, realRadius, fireCreator);
+}
+
+static bool (__fastcall* Using1stPersonWeaponMode)();
 
 	__declspec(naked) static void IsPlayerTargettingChar_ExtraChecks()
 	{
