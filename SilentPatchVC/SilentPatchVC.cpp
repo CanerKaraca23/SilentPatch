@@ -3656,7 +3656,7 @@ void Patch_VC_Common()
 	{
 		CWorld_Players_VC = AddressByVersion<void*>(0x97F798, 0x97F7A0, 0x97E7A0);
 		void* jumpDown = AddressByVersion<void*>(0x4AA400, 0x4AA420, 0x4AA2D0);
-		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
+		InjectHook(jumpDown, (void*)JumpJustDown_CheckState, HookType::Jump);
 	}
 
 	int cpuinfo[4];

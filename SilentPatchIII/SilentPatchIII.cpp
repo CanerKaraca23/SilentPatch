@@ -3552,7 +3552,7 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 			if ( void* playerPed = *(void**)CWorld_Players_III )
 			{
 				uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x224);
-				if ( state == 40 || state == 41 ) // PED_FALL or PED_GETUP
+				if ( state == 36 || state == 37 ) // PED_FALL or PED_GETUP
 					return false;
 			}
 		}
@@ -3580,7 +3580,7 @@ void Patch_III_Common()
 	{
 		CWorld_Players_III = AddressByVersion<void*>(0x94AD28, 0x94AD28, 0x95AD28);
 		void* jumpDown = AddressByVersion<void*>(0x493A40, 0x493B10, 0x493AA0);
-		InjectHook(jumpDown, JumpJustDown_CheckState, HookType::Jump);
+		InjectHook(jumpDown, (void*)JumpJustDown_CheckState, HookType::Jump);
 	}
 
 	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
