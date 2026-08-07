@@ -432,6 +432,38 @@ ExternalRef				bDrawCrossHair(AddressByVersion<uint32_t**>(0x58E7BF + 2, {"83 3D
 static ExternalRef		bIsFrontEndActive(AddressByVersion<bool**>(0x53E9AC + 1, {"80 3D ? ? ? ? 00 0F 85 ? ? ? ? B9", 2}));
 
 DebugMenuAPI gDebugMenuAPI;
+
+static void __cdecl SetCarsOnFire_ShotInfoUpdate(CVector pos, float radius, CEntity* fireCreator)
+{
+	float realRadius = radius;
+
+	struct CShotInfo {
+		int m_nWeaponType;
+		CVector m_vecOrigin;
+		CVector m_vecTargetOffset;
+		float m_fRange;
+		CEntity* m_pCreator;
+		int m_nDestroyTime;
+		bool m_bExist;
+		bool m_bExecuted;
+	};
+
+	CShotInfo* aShotInfos = (CShotInfo*)0xC89690;
+	for (int i = 0; i < 100; i++) {
+		if (aShotInfos[i].m_bExist && aShotInfos[i].m_pCreator == fireCreator) {
+			if (aShotInfos[i].m_vecOrigin.x == pos.x &&
+				aShotInfos[i].m_vecOrigin.y == pos.y &&
+				aShotInfos[i].m_vecOrigin.z == pos.z) {
+				realRadius = aShotInfos[i].m_fRange;
+				break;
+			}
+		}
+	}
+
+	auto orgSetCarsOnFire = (void(__cdecl*)(CVector, float, CEntity*))0x5659F0;
+	orgSetCarsOnFire(pos, realRadius, fireCreator);
+}
+
 static bool IgnoresWeaponPedsForPCFix();
 
 // ============= Fixed atomic render functions for blurred rotors/propellers =============
@@ -7789,6 +7821,18 @@ void Patch_SA_10(HINSTANCE hInstance)
 	}
 
 
+
+	// Fix flamethrower burning vehicles behind the player
+	if ( true ) try
+	{
+		void* push4_0 = get_pattern("68 00 00 80 40 5? E8 ? ? ? ? 68");
+		if (push4_0) {
+			void* callAddr = (void*)((uintptr_t)push4_0 + 6);
+			InjectHook(callAddr, SetCarsOnFire_ShotInfoUpdate, HookType::Call);
+		}
+	}
+	TXN_CATCH();
+
 	// Cancel the Drive By task of biker cops when losing the wanted level
 	// DRM-obfuscated, so exceptionally use patterns
 	try
@@ -10277,6 +10321,18 @@ void Patch_SA_NewBinaries_Common(HINSTANCE hInstance)
 	}
 	TXN_CATCH();
 
+
+
+	// Fix flamethrower burning vehicles behind the player
+	if ( true ) try
+	{
+		void* push4_0 = get_pattern("68 00 00 80 40 5? E8 ? ? ? ? 68");
+		if (push4_0) {
+			void* callAddr = (void*)((uintptr_t)push4_0 + 6);
+			InjectHook(callAddr, SetCarsOnFire_ShotInfoUpdate, HookType::Call);
+		}
+	}
+	TXN_CATCH();
 
 	// Cancel the Drive By task of biker cops when losing the wanted level
 	try
