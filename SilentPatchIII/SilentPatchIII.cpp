@@ -3543,6 +3543,27 @@ void Patch_III_Steam(uint32_t width, uint32_t height)
 
 	Common::Patches::DDraw_III_Steam( width, height, aNoDesktopMode );
 }
+	// Disable jump mid-air (Issue #225)
+	static void* CWorld_Players_III;
+	static bool __fastcall JumpJustDown_CheckState(void* pad, int)
+	{
+		if ( CWorld_Players_III )
+		{
+			if ( void* playerPed = *(void**)CWorld_Players_III )
+			{
+				uint32_t state = *(uint32_t*)((uintptr_t)playerPed + 0x224);
+				if ( state == 36 || state == 37 ) // PED_FALL or PED_GETUP
+					return false;
+			}
+		}
+
+		// Re-implement CPad::JumpJustDown
+		// NewState is at 0x0, OldState is at 0x30. ButtonSquare is at 0x1C.
+		int16_t newJump = *(int16_t*)((uintptr_t)pad + 0x1C);
+		int16_t oldJump = *(int16_t*)((uintptr_t)pad + 0x30 + 0x1C);
+		return newJump && !oldJump;
+	}
+
 
 void Patch_III_Common()
 {
@@ -3553,6 +3574,14 @@ void Patch_III_Common()
 	__cpuid(cpuinfo, 1);
 
 	const bool bSSESupported = (cpuinfo[3] & (1 << 25)) != 0;
+
+
+	// Jump cancels falling/getting up fix (Issue #225)
+	{
+		CWorld_Players_III = AddressByVersion<void*>(0x94AD28, 0x94AD28, 0x95AD28);
+		void* jumpDown = AddressByVersion<void*>(0x493A40, 0x493B10, 0x493AA0);
+		InjectHook(jumpDown, (void*)JumpJustDown_CheckState, HookType::Jump);
+	}
 
 	const bool bHasModelInfo = CVehicleModelInfo::HasGameBindings();
 
