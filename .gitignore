@@ -194,3 +194,9 @@ Desktop.ini
 # Recycle Bin used on file shares
 $RECYCLE.BIN/
 vcpkg_installed/
+
+# Premake generated Visual Studio files
+*.sln
+*.slnx
+*.vcxproj
+*.vcxproj.*

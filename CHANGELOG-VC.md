@@ -92,6 +92,8 @@ All the remaining, non-critical fixes.
 * Water and blood on-screen droplets can no longer be placed under the HUD or radar on higher resolutions, and they are no longer confined to a small area of the screen when the zone or vehicle name shows on screen.
 * Fixed shell casings being ejected when firing the Python (revolver), Sniper Rifle, and Laser Scope Sniper Rifle - revolvers and bolt-action rifles don't eject casings (contributed by **CanerKaraca**).
 * Fixed a memory corruption in the ice cream attractor effect generation function. This resulted in less customers getting generated in the Distribution mission.
+* Fixed Tommy's idle animations (like stretching and looking around) failing to play when using Standard controls (contributed by **CanerKaraca**).
+* Tommy's clothes will no longer reset to default after answering a phone call or triggering a cutscene that involves a clothing change (contributed by **CanerKaraca**).
 * ⚙️ Fixed siren corona placements in Police, Firetruck, Ambulance, Enforcer, Vice Cheetah, and FBI Washington.
 * ⚙️ Added siren corona to FBI Washington.
 * ⚙️ Fixed taxi light corona placement for Taxi.
@@ -109,3 +111,4 @@ Any changes that don't strictly fix game bugs.
 * ⚙️ Sliding mission titles and odd job texts from the GTA III beta can now be re-enabled (off by default).
 * ⚙️ An unused 'Minimal HUD' feature can now be re-enabled (off by default).
 * ⚙️ Purchasable property icons now show on the radar and the menu map (off by default).
+* ⚙️ Mipmapping support can now be enabled, reducing aliasing and flickering on distant textures (contributed by **CanerKaraca**).
